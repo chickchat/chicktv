@@ -2,6 +2,9 @@ const status = document.querySelector('#admin-status'),
   list = document.querySelector('#requests');
 const local =
   ['localhost', '127.0.0.1'].includes(location.hostname) && !window.CHICKTV_CONFIG.apiBaseUrl;
+const adminEnabled =
+  location.protocol !== 'file:' && (local || /^https:\/\//.test(window.CHICKTV_CONFIG.apiBaseUrl));
+const adminApiBase = window.CHICKTV_CONFIG.apiBaseUrl.replace(/\/$/, '');
 let loginPopup = null;
 let pendingLogin = null;
 let loginPoll = null;
@@ -75,26 +78,27 @@ window.addEventListener('message', async (event) => {
     freshToken = '';
     loginPopup?.close();
     loginPopup = null;
-    document.querySelector('#admin-start').disabled = !local;
+    document.querySelector('#admin-start').disabled = !adminEnabled;
   }
 });
 if (location.protocol === 'file:') {
   status.textContent =
     'Open http://localhost:4173/admin/ to use the admin portal. Opening this file directly cannot connect to the server.';
   document.querySelector('#admin-start').textContent = 'Open local admin portal';
-} else if (!local) {
+} else if (!adminEnabled) {
   status.textContent =
     'Hosted administration is not connected yet. Please use the local server for now.';
   document.querySelector('#admin-start').disabled = true;
 }
 async function api(path, data) {
-  const res = await fetch('../api/admin/' + path, {
+  const res = await fetch((adminApiBase || location.origin) + '/api/admin/' + path, {
     method: data ? 'POST' : 'GET',
     headers: {
       ...(data ? { 'Content-Type': 'application/json' } : {}),
       Authorization: 'Bearer ' + adminToken()
     },
-    body: data ? JSON.stringify(data) : undefined
+    body: data ? JSON.stringify(data) : undefined,
+    signal: AbortSignal.timeout(20000)
   });
   const body = await res.json();
   if (!res.ok) {
@@ -102,6 +106,10 @@ async function api(path, data) {
       list.replaceChildren();
       document.querySelector('#manage-channels').hidden = true;
       document.querySelector('#admin-users-section').hidden = true;
+      if (res.status === 401) {
+        freshToken = '';
+        localStorage.removeItem('chick-twitch-session');
+      }
     }
     throw Error(body.error);
   }
@@ -191,7 +199,7 @@ document.querySelector('#admin-start').onclick = async () => {
   } catch (e) {
     status.textContent = e.message;
   } finally {
-    start.disabled = !local || !!pendingLogin;
+    start.disabled = !adminEnabled || !!pendingLogin;
   }
 };
 async function refreshAdminUsers() {
