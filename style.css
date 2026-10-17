@@ -175,6 +175,13 @@ h1 {
   font-size: 12px;
   color: var(--muted);
 }
+.view-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 #screens {
   display: grid;
   gap: 14px;
@@ -517,8 +524,7 @@ code {
 }
 body.theater header,
 body.theater nav,
-body.theater .room-note,
-body.theater .section-top {
+body.theater .room-note {
   display: none;
 }
 body.theater main {
