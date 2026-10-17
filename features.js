@@ -2,6 +2,10 @@ let requestMode = false,
   userChoseChannel = false;
 const localCommunity =
   ['localhost', '127.0.0.1'].includes(location.hostname) && !window.CHICKTV_CONFIG.apiBaseUrl;
+const communityEnabled = localCommunity || /^https:\/\//.test(window.CHICKTV_CONFIG.apiBaseUrl);
+function communityEndpoint(path) {
+  return (window.CHICKTV_CONFIG.apiBaseUrl.replace(/\/$/, '') || location.origin) + '/api/' + path;
+}
 const subscriptions = new Set(saved('chick-alerts', []));
 const alertMessages = saved('chick-alert-messages', {});
 const notifiedOnline = new Set(saved('chick-alerted-online', []));
@@ -150,17 +154,18 @@ function openChannelForm(request) {
 $('#add-channel').onclick = () => openChannelForm(false);
 $('#request-channel').onclick = () => openChannelForm(true);
 async function submitRequest(channel) {
-  if (!localCommunity) {
+  if (!communityEnabled) {
     toast('Shared requests need the hosted database and admin login setup.');
     return;
   }
   const button = $('#channel-submit');
   button.disabled = true;
   try {
-    const res = await fetch('/api/requests', {
+    const res = await fetch(communityEndpoint('requests'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel })
+      body: JSON.stringify({ channel }),
+      signal: AbortSignal.timeout(20000)
     });
     const data = await res.json();
     if (!res.ok) throw Error(data.error);
@@ -340,6 +345,43 @@ function trackChatter(name, login, id) {
     .slice(0, 10)
     .forEach((r) => ranking.append(el('li', '', r.name + ' · ' + r.count + ' messages')));
 }
+let communityRefreshBusy = false;
+async function refreshCommunity() {
+  if (!communityEnabled || communityRefreshBusy) return;
+  communityRefreshBusy = true;
+  try {
+    const res = await fetch(communityEndpoint('community'), {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) throw Error();
+    const data = await res.json();
+    const personal = channels.filter((c) => c.custom);
+    const previous = screens.map((index) => channels[index] && channelKey(channels[index]));
+    const shared = Array.isArray(data.shared)
+      ? data.shared
+      : [
+          ...channels.filter(
+            (c) => !c.custom && !(data.removed || []).includes(c.original || c.url)
+          ),
+          ...(data.approved || [])
+        ];
+    const updated = [...new Map(shared.map((c) => [channelKey(c), c])).values(), ...personal];
+    if (JSON.stringify(updated) !== JSON.stringify(channels)) {
+      channels = updated;
+      screens = previous.map((key) =>
+        Math.max(
+          0,
+          channels.findIndex((c) => channelKey(c) === key)
+        )
+      );
+      renderTabs();
+      renderScreens();
+    }
+  } finally {
+    communityRefreshBusy = false;
+  }
+}
 async function initFeatures() {
   $('#alert-form').onsubmit = saveAlertSettings;
   $('#alert-disable').onclick = () => {
@@ -352,26 +394,21 @@ async function initFeatures() {
       renderTabs();
     }
   };
-  if (localCommunity) {
+  if (communityEnabled) {
     try {
-      const res = await fetch('/api/community', { signal: AbortSignal.timeout(10000) });
-      if (!res.ok) throw Error();
-      const data = await res.json();
-      const personal = channels.filter((c) => c.custom);
-      channels = [
-        ...channels.filter((c) => !c.custom && !(data.removed || []).includes(c.original || c.url)),
-        ...data.approved,
-        ...personal
-      ];
-      screens = screens.map((index) => Math.min(index, Math.max(0, channels.length - 1)));
-      renderScreens();
+      await refreshCommunity();
     } catch {
-      toast('Local approval service is unavailable. Restart the local server.');
+      toast('Channel updates are temporarily unavailable. Showing the saved channel list.');
     }
   }
   renderTabs();
   await checkAvailability(true);
-  setInterval(() => {
-    if (!document.hidden) checkAvailability(false);
+  setInterval(async () => {
+    if (!document.hidden) {
+      try {
+        await refreshCommunity();
+      } catch {}
+      void checkAvailability(false);
+    }
   }, 60000);
 }

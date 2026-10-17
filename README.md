@@ -16,4 +16,4 @@ Open repository Settings → Pages → the menu beside the live-site address →
 
 ## Backend
 
-Stream lookups and status checks use a separately hosted Cloudflare Worker. GitHub Pages does not execute the local Node server. The current hosted Worker does not include the local admin/request persistence service.
+Stream lookups and status checks use a separately hosted Cloudflare Worker. GitHub Pages does not execute the local Node server. Channel requests, approved channels, and admin membership are stored privately in Cloudflare. The owner manages Twitch administrators at admin/. Changes take effect without republishing; open watch pages refresh the shared list every 60 seconds.
