@@ -1,23 +1,28 @@
 function chatMedia(text) {
   const match = text.match(
-    /\[(s|img|video|v|y)\]\s*(https:\/\/[^\s<>\[\]]+)(?:\s*\[t\]|\[\/(?:s|img|video|v|y)\])?/i
+    /\[(s|img|video|v|y)\]\s*(https:\/\/[^\s<>\[\]]+)(?:\s*\[(?:t|e)\]|\s*\[\/(?:s|img|video|v|y)\])?/i,
   );
   if (!match) return null;
   try {
     const url = new URL(match[2]);
-    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    if (url.protocol !== "https:" || url.username || url.password) return null;
     const kind =
-      /^(s|img)$/i.test(match[1]) || /\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)
-        ? 'image'
-        : 'video';
-    const host = url.hostname.replace(/^www\./, '');
+      /^(s|img)$/i.test(match[1]) ||
+      /\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)
+        ? "image"
+        : "video";
+    const host = url.hostname.replace(/^www\./, "");
     let embed = null;
-    if (kind === 'video' && ['youtube.com', 'm.youtube.com', 'youtu.be'].includes(host)) {
+    if (
+      kind === "video" &&
+      ["youtube.com", "m.youtube.com", "youtu.be"].includes(host)
+    ) {
       const id =
-        host === 'youtu.be'
+        host === "youtu.be"
           ? url.pathname.slice(1)
-          : url.searchParams.get('v') || url.pathname.split('/').pop();
-      if (/^[\w-]{11}$/.test(id || '')) embed = 'https://www.youtube-nocookie.com/embed/' + id;
+          : url.searchParams.get("v") || url.pathname.split("/").pop();
+      if (/^[\w-]{11}$/.test(id || ""))
+        embed = "https://www.youtube-nocookie.com/embed/" + id;
     }
     return {
       kind,
@@ -25,7 +30,7 @@ function chatMedia(text) {
       embed,
       start: match.index,
       end: match.index + match[0].length,
-      directVideo: /\.(mp4|webm)$/i.test(url.pathname)
+      directVideo: /\.(mp4|webm)$/i.test(url.pathname),
     };
   } catch {
     return null;
@@ -34,99 +39,108 @@ function chatMedia(text) {
 function renderChatContent(text) {
   const media = chatMedia(text);
   if (!media)
-    return typeof renderEmoteText === 'function' ? renderEmoteText(text) : el('span', '', text);
-  const content = el('div', 'chat-media');
-  if (media.start) content.append(el('span', '', text.slice(0, media.start)));
-  const link = el('a', 'media-link', media.kind === 'image' ? 'Open image ↗' : 'Open video ↗');
+    return typeof renderEmoteText === "function"
+      ? renderEmoteText(text)
+      : el("span", "", text);
+  const content = el("div", "chat-media");
+  if (media.start) content.append(el("span", "", text.slice(0, media.start)));
+  const link = el(
+    "a",
+    "media-link",
+    media.kind === "image" ? "Open image ↗" : "Open video ↗",
+  );
   link.href = media.url;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  if (media.kind !== 'image') content.append(link);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  if (media.kind !== "image") content.append(link);
   let player;
-  if (media.kind === 'image') {
-    player = el('img');
-    player.alt = 'Image shared in chat';
-    player.loading = 'lazy';
-    player.referrerPolicy = 'no-referrer';
+  if (media.kind === "image") {
+    player = el("img");
+    player.alt = "Image shared in chat";
+    player.loading = "lazy";
+    player.referrerPolicy = "no-referrer";
     player.src = media.url;
   } else if (media.embed) {
-    player = el('iframe');
-    player.title = 'YouTube video shared in chat';
-    player.referrerPolicy = 'strict-origin-when-cross-origin';
+    player = el("iframe");
+    player.title = "YouTube video shared in chat";
+    player.referrerPolicy = "strict-origin-when-cross-origin";
     player.src = media.embed;
-    player.allow = 'encrypted-media; fullscreen; picture-in-picture';
+    player.allow = "encrypted-media; fullscreen; picture-in-picture";
     player.allowFullscreen = true;
   } else if (media.directVideo) {
-    player = el('video');
+    player = el("video");
     player.controls = true;
-    player.preload = 'none';
-    player.referrerPolicy = 'no-referrer';
+    player.preload = "none";
+    player.referrerPolicy = "no-referrer";
     player.src = media.url;
   }
   if (player) {
     player.onerror = () => {
       player.remove();
-      if (media.kind === 'image') content.append(link);
-      content.append(el('small', '', 'Preview unavailable. Use the link above.'));
+      if (media.kind === "image") content.append(link);
+      content.append(
+        el("small", "", "Preview unavailable. Use the link above."),
+      );
     };
-    if (media.kind === 'image') {
-      link.textContent = '';
-      link.setAttribute('aria-label', 'Open image in a new tab');
+    if (media.kind === "image") {
+      link.textContent = "";
+      link.setAttribute("aria-label", "Open image in a new tab");
       link.append(player);
       content.append(link);
       player.onerror = () => {
         player.remove();
-        link.textContent = 'Open image ↗';
+        link.textContent = "Open image ↗";
       };
     } else content.append(player);
   }
-  if (media.end < text.length) content.append(el('span', '', text.slice(media.end)));
+  if (media.end < text.length)
+    content.append(el("span", "", text.slice(media.end)));
   return content;
 }
 function insertMediaTag(kind) {
-  const input = $('#message'),
-    tag = kind === 'image' ? '[s] ' : '[video] ';
+  const input = $("#message"),
+    tag = kind === "image" ? "[s] " : "[video] ";
   const start = input.selectionStart ?? input.value.length,
     end = input.selectionEnd ?? start;
   if (input.value.length - (end - start) + tag.length > input.maxLength) {
-    toast('The message is too long to add a tag.');
+    toast("The message is too long to add a tag.");
     return;
   }
-  input.setRangeText(tag, start, end, 'end');
+  input.setRangeText(tag, start, end, "end");
   input.focus();
 }
-document.addEventListener('DOMContentLoaded', () => {
-  const tools = el('div', 'media-tools');
+document.addEventListener("DOMContentLoaded", () => {
+  const tools = el("div", "media-tools");
   for (const [kind, label] of [
-    ['image', 'Image'],
-    ['video', 'Video']
+    ["image", "Image"],
+    ["video", "Video"],
   ]) {
-    const b = el('button', '', label);
-    b.type = 'button';
+    const b = el("button", "", label);
+    b.type = "button";
     b.onclick = () => insertMediaTag(kind);
     tools.append(b);
   }
-  $('#send-form').before(tools);
-  const sizes = el('div', 'font-controls');
-  sizes.setAttribute('aria-label', 'Chat font size');
-  const smaller = el('button', '', 'A−'),
-    value = el('span'),
-    larger = el('button', '', 'A+');
-  smaller.type = larger.type = 'button';
-  smaller.setAttribute('aria-label', 'Decrease chat font size');
-  larger.setAttribute('aria-label', 'Increase chat font size');
+  $("#send-form").before(tools);
+  const sizes = el("div", "font-controls");
+  sizes.setAttribute("aria-label", "Chat font size");
+  const smaller = el("button", "", "A−"),
+    value = el("span"),
+    larger = el("button", "", "A+");
+  smaller.type = larger.type = "button";
+  smaller.setAttribute("aria-label", "Decrease chat font size");
+  larger.setAttribute("aria-label", "Increase chat font size");
   let size = 16;
   try {
-    const stored = Number(localStorage.getItem('chick-chat-font'));
+    const stored = Number(localStorage.getItem("chick-chat-font"));
     if (stored >= 12 && stored <= 24) size = stored;
   } catch {}
   function apply() {
-    document.documentElement.style.setProperty('--chat-font-size', size + 'px');
-    value.textContent = size + 'px';
+    document.documentElement.style.setProperty("--chat-font-size", size + "px");
+    value.textContent = size + "px";
     smaller.disabled = size <= 12;
     larger.disabled = size >= 24;
     try {
-      localStorage.setItem('chick-chat-font', String(size));
+      localStorage.setItem("chick-chat-font", String(size));
     } catch {}
   }
   smaller.onclick = () => {
