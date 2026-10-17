@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/chicktv-site"
-          cp -- *.html *.css *.js channels.json .nojekyll "$RUNNER_TEMP/chicktv-site/"
+          cp -- *.html *.css *.js channels.json sk-emotes.json sk-emote-packs.json .nojekyll "$RUNNER_TEMP/chicktv-site/"
           cp -R -- admin assets "$RUNNER_TEMP/chicktv-site/"
       - uses: actions/upload-pages-artifact@v3
         with:
