@@ -17,9 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Prepare public website files
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/chicktv-site"
+          cp -- *.html *.css *.js channels.json .nojekyll "$RUNNER_TEMP/chicktv-site/"
+          cp -R -- admin assets "$RUNNER_TEMP/chicktv-site/"
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ${{ runner.temp }}/chicktv-site
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
