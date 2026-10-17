@@ -1,0 +1,105 @@
+[
+  { "id": "channel", "label": "本台", "image": "https://na.cx/i/dRtvSzF.png", "count": 243 },
+  {
+    "id": "sk9fish",
+    "label": "傻魚 · 新版",
+    "image": "https://sk-knower.com/skicon/sk9fish/e76.gif",
+    "count": 86
+  },
+  {
+    "id": "sk9fish1",
+    "label": "傻魚 · 原祖",
+    "image": "https://sk-knower.com/skicon/sk9fish/55.png",
+    "count": 60
+  },
+  {
+    "id": "sk9fish2",
+    "label": "傻魚 · 動態",
+    "image": "https://sk-knower.com/skicon/sk9fish/99.gif",
+    "count": 57
+  },
+  {
+    "id": "Set1List",
+    "label": "經典 1",
+    "image": "https://live.sk-knower.com/icon/img/snapass.png",
+    "count": 27
+  },
+  {
+    "id": "Set2List",
+    "label": "經典 2",
+    "image": "https://live.sk-knower.com/icon/img/anTCLTM.gif",
+    "count": 31
+  },
+  {
+    "id": "Set3List",
+    "label": "經典 3",
+    "image": "https://live.sk-knower.com/icon/img/PQzr4Ni.jpg",
+    "count": 34
+  },
+  {
+    "id": "Set4List",
+    "label": "經典 4",
+    "image": "https://live.sk-knower.com/icon/img/MXUF50p.gif",
+    "count": 28
+  },
+  {
+    "id": "Set5List",
+    "label": "經典 5",
+    "image": "https://live.sk-knower.com/icon/img/gdc.jpg",
+    "count": 37
+  },
+  {
+    "id": "Set6List",
+    "label": "經典 6",
+    "image": "https://live.sk-knower.com/icon/img/a8e9a35b85b3.gif",
+    "count": 37
+  },
+  {
+    "id": "Set7List",
+    "label": "經典 7",
+    "image": "https://lh3.googleusercontent.com/Fwij96-zYNkpHNkF6P8MYTcINLQpyeXIEudxfthntc3sLv4BpwvvXejiip1oDldT_Nje4g=w1920-h1080-rw-no",
+    "count": 30
+  },
+  {
+    "id": "hkg2",
+    "label": "高登 2",
+    "image": "https://live.sk-knower.com/icon/HKG2/Small.gif",
+    "count": 63
+  },
+  {
+    "id": "hkg1",
+    "label": "高登 1",
+    "image": "https://live.sk-knower.com/icon/HKG/Angel.gif",
+    "count": 61
+  },
+  {
+    "id": "lomoreList",
+    "label": "腦魔",
+    "image": "https://live.sk-knower.com/icon/Lomore/angel.gif",
+    "count": 53
+  },
+  {
+    "id": "helloweenlomore",
+    "label": "helloweenlomore",
+    "image": "https://live.sk-knower.com/icon/Lomore/bye2g.gif",
+    "count": 26
+  },
+  {
+    "id": "hiddenlist",
+    "label": "更多貼圖",
+    "image": "https://live.sk-knower.com/icon/img/6E522pg.gif",
+    "count": 33
+  },
+  {
+    "id": "eventlistrnd2016",
+    "label": "eventlistrnd2016",
+    "image": "https://static.wixstatic.com/media/0ff607_9a8c2d379d1542fca3085215c25f54e6~mv2.png",
+    "count": 166
+  },
+  {
+    "id": "event2listRC2016",
+    "label": "event2listRC2016",
+    "image": "https://na.cx/i/aoi702.png",
+    "count": 6
+  }
+]

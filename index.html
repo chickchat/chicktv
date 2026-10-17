@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" href="assets/chicktv-chick-three-quarter.png" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="twitch-popup.js"></script>
+    <title>ChickTV — Your channels. Your people.</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="features.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="language.js" defer></script>
+    <script src="twitch-login.js" defer></script>
+    <script src="chat-send.js" defer></script>
+    <script src="chat-media.js" defer></script>
+    <script src="chat-history.js" defer></script>
+    <script src="chat-badges.js" defer></script>
+    <script src="chat-colors.js" defer></script>
+    <script src="chat-emotes.js" defer></script>
+    <script src="provider-links.js" defer></script>
+    <script src="app.js" defer></script>
+    <script src="features.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="./"
+        ><img
+          class="brand-logo"
+          src="assets/chicktv-chick-three-quarter.png"
+          alt="ChickTV baby chick mascot"
+          width="48"
+          height="48"
+        />
+        <b>chick<span>tv</span></b
+        ><small>WATCH TOGETHER</small></a
+      >
+      <div class="actions">
+        <button id="request-channel">Request channel</button
+        ><button id="add-channel">＋ Personal channel</button
+        ><button class="primary" id="add-screen">▣ Add screen</button
+        ><button id="language-toggle" type="button" aria-label="Switch language">English</button>
+      </div>
+    </header>
+    <nav>
+      <div class="rail-label">YOUR CHANNELS <span id="channel-count"></span></div>
+      <div id="channels"></div>
+    </nav>
+    <section class="personal-strip">
+      <span>MY CHANNELS</span>
+      <div id="personal-channels"></div>
+    </section>
+    <div id="status-note" class="status-note">Checking channel availability…</div>
+    <main>
+      <section class="watch">
+        <div class="section-top">
+          <div>
+            <span class="eyebrow">THE WATCH ROOM</span>
+          </div>
+          <button id="layout">▦ Grid view</button>
+        </div>
+        <div id="screens"></div>
+        <div class="watch-footer">
+          <span>● <b id="screen-count">1 screen</b> · Click a screen, then pick a channel</span
+          ><button id="theater">⛶ Theater mode</button>
+        </div>
+      </section>
+      <aside>
+        <div class="chat-head">
+          <div class="avatar">W</div>
+          <div>
+            <h2>The chicken coop <span>TWITCH</span></h2>
+            <p>Whitewing940920 · <span id="connection">Connecting…</span></p>
+          </div>
+          <a
+            href="https://www.twitch.tv/Whitewing940920"
+            target="_blank"
+            rel="noopener"
+            aria-label="Open Twitch"
+            >↗</a
+          >
+        </div>
+        <div id="messages" aria-live="polite">
+          <div class="day">TODAY</div>
+          <div class="welcome">
+            <span>✳</span>
+            <h3>Welcome to the coop</h3>
+            <p>Live Twitch messages appear here.<br />Say hello and watch together.</p>
+          </div>
+        </div>
+        <div class="composer">
+          <div id="auth-note" hidden>Reading as a guest</div>
+          <form id="send-form">
+            <input
+              id="message"
+              placeholder="Join the conversation…"
+              maxlength="500"
+              aria-label="Chat message"
+            /><button class="primary" aria-label="Send message">➤</button>
+          </form>
+          <button id="login">Connect to Twitch ↗</button>
+        </div>
+      </aside>
+    </main>
+    <dialog id="channel-dialog">
+      <form id="channel-form">
+        <div class="modal-top">
+          <h2 id="channel-title">Add a personal channel</h2>
+          <button type="button" data-close>×</button>
+        </div>
+        <p>Bring another favorite into your watch room.</p>
+        <label
+          >Channel name<input
+            name="name"
+            required
+            maxlength="40"
+            placeholder="My favorite channel" /></label
+        ><label
+          >Channel or video URL<input
+            name="url"
+            type="url"
+            required
+            placeholder="https://twitch.tv/channel"
+        /></label>
+        <p class="hint">
+          Supports Twitch, Kick, YouTube, direct MP4 / HLS, and HTTPS embed URLs. Providers must
+          allow embedding.
+        </p>
+        <button class="primary" id="channel-submit">Add personal channel</button>
+      </form>
+    </dialog>
+    <div id="toast" role="status"></div>
+    <dialog id="alert-dialog">
+      <form id="alert-form">
+        <div class="modal-top">
+          <h2 id="alert-title">上線通知</h2>
+          <button
+            type="button"
+            onclick="this.closest('dialog').close()"
+            aria-label="Close notification settings"
+          >
+            ×
+          </button>
+        </div>
+        <label
+          >通知顯示訊息<input id="alert-message" required maxlength="120" autocomplete="off"
+        /></label>
+        <p id="alert-support" class="hint"></p>
+        <div class="alert-actions">
+          <button type="submit" class="primary">儲存並啟用</button
+          ><button type="button" id="alert-disable">關閉通知</button
+          ><button type="button" onclick="this.closest('dialog').close()">取消</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

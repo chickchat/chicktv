@@ -1,0 +1,130 @@
+[
+  {
+    "setdefault": "true",
+    "displayname": "友寶G",
+    "platform": "m3u8",
+    "details": "yaubotai01",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "哥普",
+    "platform": "twitch",
+    "details": "zero_cobra",
+    "icon": "https://live.sk-knower.com/flag/twitch.png",
+    "url": "https://player.twitch.tv/?channel=zero_cobra&parent=skgamer.com"
+  },
+  {
+    "setdefault": "",
+    "displayname": "哥2",
+    "platform": "m3u8",
+    "details": "Godzilla_2027",
+    "icon": "https://live.sk-knower.com/flag/twitch.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "雀",
+    "platform": "vl",
+    "details": "jeukpo",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/jeukpo"
+  },
+  {
+    "setdefault": "",
+    "displayname": "西野",
+    "platform": "vl",
+    "details": "nanase-maru525",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/nanase-maru525"
+  },
+  {
+    "setdefault": "",
+    "displayname": "WC",
+    "platform": "m3u8",
+    "details": "no25no2501",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "ATV",
+    "platform": "vl",
+    "details": "collartv",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/collartv"
+  },
+  {
+    "setdefault": "",
+    "displayname": "汁仔",
+    "platform": "vl",
+    "details": "whw9457",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/whw9457"
+  },
+  {
+    "setdefault": "",
+    "displayname": "然",
+    "platform": "vl",
+    "details": "yinlove",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/yinlove"
+  },
+  {
+    "setdefault": "",
+    "displayname": "羅拔",
+    "platform": "vl",
+    "details": "baggio1967",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/baggio1967"
+  },
+  {
+    "setdefault": "",
+    "displayname": "火",
+    "platform": "vl",
+    "details": "falconjurer",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": "https://player.kick.com/falconjurer"
+  },
+  {
+    "setdefault": "",
+    "displayname": "金剛",
+    "platform": "m3u8",
+    "details": "KingKong_TV",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "美1",
+    "platform": "m3u8",
+    "details": "meidingdang",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "美2",
+    "platform": "m3u8",
+    "details": "meidingdang0",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "有片",
+    "platform": "m3u8",
+    "details": "fish3345678",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  },
+  {
+    "setdefault": "",
+    "displayname": "KA",
+    "platform": "m3u8",
+    "details": "kinganime",
+    "icon": "https://live.sk-knower.com/flag/kick.png",
+    "url": ""
+  }
+]
