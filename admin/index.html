@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" href="../assets/chicktv-chick-three-quarter.png" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ChickTV admin</title>
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="../features.css" />
+    <script src="../config.js" defer></script>
+    <script src="admin.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="../"
+        ><img
+          class="brand-logo"
+          src="../assets/chicktv-chick-three-quarter.png"
+          alt="ChickTV baby chick mascot"
+          width="48"
+          height="48"
+        />
+        <b>chick<span>tv</span></b></a
+      ><span>Channel requests</span>
+    </header>
+    <section class="admin-page">
+      <h1>Manage the coop</h1>
+      <p id="admin-status">
+        Sign in with Twitch here to verify access. Only approved Twitch accounts can view requests
+        and approve or reject channels.
+      </p>
+      <button id="admin-start" class="primary">Sign in with Twitch / Verify access</button>
+      <a class="primary admin-back" href="../">Back</a>
+      <div id="requests"></div>
+      <section id="manage-channels" hidden>
+        <h2>Manage channels</h2>
+        <p>Delete channels from 預製區. Visitors will see the updated list after refreshing.</p>
+        <div id="admin-channels-list"></div>
+      </section>
+      <section id="admin-users-section" hidden>
+        <h2>Admin users</h2>
+        <p>
+          Owner only. Added accounts can approve or reject channel requests. They cannot manage
+          other admins.
+        </p>
+        <form id="add-admin-form">
+          <label
+            >Twitch username<input
+              id="new-admin-username"
+              required
+              maxlength="25"
+              pattern="[A-Za-z0-9_]+"
+              placeholder="Twitch username"
+              autocomplete="off"
+          /></label>
+          <button type="submit" class="primary">Add admin</button>
+        </form>
+        <p id="admin-users-status" role="status"></p>
+        <div id="admin-users-list"></div>
+      </section>
+    </section>
+  </body>
+</html>
