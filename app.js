@@ -391,6 +391,18 @@ function message(
   const username = el('span', 'chat-username', ' (' + (login || name) + ')');
   username.hidden = !login || name.toLowerCase() === login.toLowerCase();
   author.append(username);
+  if (/^[a-z0-9_]{1,25}$/i.test(login)) {
+    author.setAttribute('role', 'button');
+    author.tabIndex = 0;
+    author.setAttribute('aria-haspopup', 'dialog');
+    author.onclick = () => openChatProfile(name, login);
+    author.onkeydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openChatProfile(name, login);
+      }
+    };
+  }
   const body = renderChatContent(text);
   body.classList.add('chat-body');
   b.append(

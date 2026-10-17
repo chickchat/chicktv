@@ -41,7 +41,7 @@ function renderChatContent(text) {
   link.href = media.url;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
-  content.append(link);
+  if (media.kind !== 'image') content.append(link);
   let player;
   if (media.kind === 'image') {
     player = el('img');
@@ -66,9 +66,19 @@ function renderChatContent(text) {
   if (player) {
     player.onerror = () => {
       player.remove();
+      if (media.kind === 'image') content.append(link);
       content.append(el('small', '', 'Preview unavailable. Use the link above.'));
     };
-    content.append(player);
+    if (media.kind === 'image') {
+      link.textContent = '';
+      link.setAttribute('aria-label', 'Open image in a new tab');
+      link.append(player);
+      content.append(link);
+      player.onerror = () => {
+        player.remove();
+        link.textContent = 'Open image ↗';
+      };
+    } else content.append(player);
   }
   if (media.end < text.length) content.append(el('span', '', text.slice(media.end)));
   return content;

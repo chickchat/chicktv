@@ -20,7 +20,7 @@ function selectReply(bubble, name) {
   $('#message').focus();
 }
 function addReplyButton(bubble, name) {
-  const button = el('button', 'chat-reply', '↩ Reply');
+  const button = el('button', 'chat-reply', '↩');
   button.type = 'button';
   button.setAttribute('aria-label', 'Reply to ' + name);
   button.onclick = () => selectReply(bubble, name);
@@ -108,7 +108,7 @@ function outgoingResult(line, tags) {
     clearTimeout(p.timer);
     p.bubble.dataset.id = tags.id;
     addReplyButton(p.bubble, p.name || p.login);
-    p.status.textContent = 'Sent';
+    p.status.remove();
     if (typeof rememberChat === 'function')
       rememberChat(
         p.name || p.login,
@@ -132,4 +132,36 @@ function outgoingResult(line, tags) {
     clearTimeout(p.timer);
     p.status.textContent = 'Not sent: ' + line.split(' :').pop();
   }
+}
+
+function openChatProfile(name, login) {
+  if (!/^[a-z0-9_]{1,25}$/i.test(login)) return;
+  document.querySelector('#chat-profile')?.remove();
+  const english = document.documentElement.lang === 'en';
+  const popup = el('dialog', 'chat-profile');
+  popup.id = 'chat-profile';
+  popup.setAttribute('aria-labelledby', 'chat-profile-name');
+  const heading = el('h2', '', name);
+  heading.id = 'chat-profile-name';
+  const close = el('button', '', '×');
+  close.type = 'button';
+  close.setAttribute('aria-label', english ? 'Close' : '關閉');
+  close.onclick = () => popup.close();
+  const header = el('div', 'modal-top');
+  header.append(heading, close);
+  popup.append(header);
+  if (name.toLowerCase() !== login.toLowerCase()) popup.append(el('p', '', login));
+  const link = el('a', 'profile-twitch-link', english ? 'Open Twitch page ↗' : '前往 Twitch 頁面 ↗');
+  link.href = 'https://www.twitch.tv/' + encodeURIComponent(login.toLowerCase());
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  popup.append(link);
+  popup.addEventListener('click', (event) => {
+    if (event.target !== popup) return;
+    const rect = popup.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) popup.close();
+  });
+  popup.addEventListener('close', () => popup.remove(), { once: true });
+  document.body.append(popup);
+  popup.showModal();
 }

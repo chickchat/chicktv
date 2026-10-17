@@ -17,3 +17,9 @@ Open repository Settings → Pages → the menu beside the live-site address →
 ## Backend
 
 Stream lookups and status checks use a separately hosted Cloudflare Worker. GitHub Pages does not execute the local Node server. Channel requests, approved channels, and admin membership are stored privately in Cloudflare. The owner manages Twitch administrators at admin/. Changes take effect without republishing; open watch pages refresh the shared list every 60 seconds.
+
+## Local preview
+
+With Node.js installed, run `node local-preview.mjs` from this folder, then open http://localhost:4173/ . Keep the terminal open while previewing. Backend requests still use the production Cloudflare backend; administrative changes affect live data.
+
+The publishing workflow includes only browser files, `admin/`, and `assets/`. The local preview server and README are not included in the deployed website.
