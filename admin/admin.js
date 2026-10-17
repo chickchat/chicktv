@@ -10,7 +10,7 @@ let pendingLogin = null;
 let loginPoll = null;
 let freshToken = '';
 
-function openAdminLogin() {
+function openAdminLogin(inThisTab = false) {
   const client = window.CHICKTV_CONFIG.twitchClientId;
   if (!client) throw Error('Twitch sign-in has not been configured.');
   const state = crypto.randomUUID();
@@ -23,6 +23,18 @@ function openAdminLogin() {
     state
   });
   pendingLogin = { state, client };
+  if (inThisTab) {
+    clearInterval(loginPoll);
+    loginPopup?.close();
+    sessionStorage.setItem('twitch-state', state);
+    sessionStorage.setItem(
+      'chicktv-admin-pending',
+      JSON.stringify({ state, client, expiresAt: Date.now() + 600000 })
+    );
+    location.assign(url.href);
+    return;
+  }
+  sessionStorage.removeItem('chicktv-admin-pending');
   loginPopup = window.open(url.href, 'chicktv-twitch-login', 'popup=yes,width=520,height=760');
   if (!loginPopup) {
     pendingLogin = null;
@@ -55,23 +67,7 @@ window.addEventListener('message', async (event) => {
     if (event.data.state !== pending.state)
       throw Error('Could not verify Twitch sign-in. Try again.');
     if (event.data.error || !event.data.token) throw Error('Twitch sign-in was cancelled.');
-    freshToken = event.data.token;
-    const validation = await fetch('https://id.twitch.tv/oauth2/validate', {
-      headers: { Authorization: 'OAuth ' + freshToken }
-    });
-    if (!validation.ok) throw Error('Twitch sign-in expired. Please try again.');
-    const identity = await validation.json();
-    if (identity.client_id !== pending.client || !(identity.expires_in > 0))
-      throw Error('Could not verify Twitch sign-in. Please try again.');
-    await verifyAdmin();
-    localStorage.setItem(
-      'chick-twitch-session',
-      JSON.stringify({
-        token: freshToken,
-        client: pending.client,
-        expiresAt: Date.now() + identity.expires_in * 1000
-      })
-    );
+    await completeAdminLogin(event.data.token, pending.client);
   } catch (e) {
     status.textContent = e.message;
   } finally {
@@ -81,14 +77,68 @@ window.addEventListener('message', async (event) => {
     document.querySelector('#admin-start').disabled = !adminEnabled;
   }
 });
+async function completeAdminLogin(accessToken, client) {
+  if (client !== window.CHICKTV_CONFIG.twitchClientId)
+    throw Error('Twitch application changed. Sign in again.');
+  freshToken = accessToken;
+  const validation = await fetch('https://id.twitch.tv/oauth2/validate', {
+    headers: { Authorization: 'OAuth ' + freshToken },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!validation.ok) throw Error('Twitch sign-in expired. Please try again.');
+  const identity = await validation.json();
+  if (identity.client_id !== client || !(identity.expires_in > 0))
+    throw Error('Could not verify Twitch sign-in. Please try again.');
+  await verifyAdmin();
+  localStorage.setItem(
+    'chick-twitch-session',
+    JSON.stringify({
+      token: freshToken,
+      client,
+      expiresAt: Date.now() + identity.expires_in * 1000
+    })
+  );
+}
+
+document.querySelector('#admin-login-here').onclick = () => {
+  try {
+    openAdminLogin(true);
+  } catch (error) {
+    pendingLogin = null;
+    status.textContent = error.message;
+  }
+};
+
+async function restoreAdminLogin() {
+  let result;
+  try {
+    const stored = sessionStorage.getItem('chicktv-admin-result');
+    sessionStorage.removeItem('chicktv-admin-result');
+    if (!stored) return;
+    result = JSON.parse(stored);
+    if (result.error) throw Error(result.error);
+    if (!(result.expiresAt > Date.now()) || !result.token)
+      throw Error('Sign-in expired. Please try again.');
+    status.textContent = 'Verifying your Twitch access…';
+    document.querySelector('#admin-start').disabled = true;
+    await completeAdminLogin(result.token, result.client);
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    freshToken = '';
+    document.querySelector('#admin-start').disabled = !adminEnabled;
+  }
+}
 if (location.protocol === 'file:') {
   status.textContent =
     'Open http://localhost:4173/admin/ to use the admin portal. Opening this file directly cannot connect to the server.';
   document.querySelector('#admin-start').textContent = 'Open local admin portal';
+  document.querySelector('#admin-login-here').disabled = true;
 } else if (!adminEnabled) {
   status.textContent =
     'Hosted administration is not connected yet. Please use the local server for now.';
   document.querySelector('#admin-start').disabled = true;
+  document.querySelector('#admin-login-here').disabled = true;
 }
 async function api(path, data) {
   const res = await fetch((adminApiBase || location.origin) + '/api/admin/' + path, {
@@ -263,3 +313,4 @@ function adminToken() {
     return '';
   }
 }
+void restoreAdminLogin();
