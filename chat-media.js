@@ -44,7 +44,8 @@ function renderChatContent(text) {
       ? renderEmoteText(text)
       : el("span", "", text);
   const content = el("div", "chat-media");
-  if (media.start) content.append(el("span", "", text.slice(0, media.start)));
+  const renderText = (value) => typeof renderEmoteText === 'function' ? renderEmoteText(value) : el('span', '', value);
+  if (media.start) content.append(renderText(text.slice(0, media.start)));
   const link = el(
     "a",
     "media-link",
@@ -95,7 +96,7 @@ function renderChatContent(text) {
     } else content.append(player);
   } else content.append(link);
   if (media.end < text.length)
-    content.append(el("span", "", text.slice(media.end)));
+    content.append(renderText(text.slice(media.end)));
   return content;
 }
 function insertMediaTag(kind) {
