@@ -39,7 +39,8 @@ function rememberChat(
   at = Date.now(),
   badges = '',
   color = '',
-  reply = null
+  reply = null,
+  localTimestamp = false
 ) {
   if (restoringHistory) return;
   const rows = readChatHistory();
@@ -49,6 +50,7 @@ function rememberChat(
     text,
     id: id || '',
     self: !!self,
+    localTimestamp: !!localTimestamp,
     login: login || '',
     at,
     reply:
@@ -105,6 +107,7 @@ function restoreChatHistory() {
           ? r.reply
           : null
       );
+      bubble.dataset.localTimestamp = String(!!r.localTimestamp);
       bubble.append(el('small', 'send-status', 'Previous message'));
     }
     $('#messages').append(el('div', 'day', 'LIVE MESSAGES'));

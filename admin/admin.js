@@ -1,11 +1,7 @@
 const status = document.querySelector("#admin-status"),
   list = document.querySelector("#requests");
-const local =
-  ["localhost", "127.0.0.1"].includes(location.hostname) &&
-  !window.CHICKTV_CONFIG.apiBaseUrl;
 const adminEnabled =
-  location.protocol !== "file:" &&
-  (local || /^https:\/\//.test(window.CHICKTV_CONFIG.apiBaseUrl));
+  location.protocol !== "file:" && window.CHICKTV_CONFIG.backendEnabled;
 const adminApiBase = window.CHICKTV_CONFIG.apiBaseUrl.replace(/\/$/, "");
 let loginPopup = null;
 let pendingLogin = null;
@@ -296,6 +292,39 @@ async function refreshChannels() {
     urlInput.value = channel.original || channel.url || "";
     urlInput.required = !!urlInput.value;
     urlLabel.append(urlInput);
+    const providerLabel = document.createElement("label");
+    providerLabel.textContent = "Provider";
+    const providerInput = document.createElement("select");
+    for (const [value, text] of [
+      ["url", "Other providers (URL)"],
+      ["gosh", "Gosh"],
+    ]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      providerInput.append(option);
+    }
+    providerInput.value = channel.platform === "m3u8" ? "gosh" : "url";
+    providerLabel.append(providerInput);
+    const goshLabel = document.createElement("label");
+    goshLabel.textContent = "Gosh channel ID";
+    const goshInput = document.createElement("input");
+    goshInput.maxLength = 80;
+    goshInput.pattern = "[A-Za-z0-9_-]{1,80}";
+    goshInput.placeholder = "meidingdang";
+    goshInput.value = channel.platform === "m3u8" ? channel.details : "";
+    goshLabel.append(goshInput);
+    const updateSourceFields = () => {
+      const gosh = providerInput.value === "gosh";
+      urlLabel.style.display = gosh ? "none" : "";
+      goshLabel.style.display = gosh ? "" : "none";
+      urlInput.disabled = gosh;
+      urlInput.required = !gosh;
+      goshInput.disabled = !gosh;
+      goshInput.required = gosh;
+    };
+    providerInput.onchange = updateSourceFields;
+    updateSourceFields();
     const save = document.createElement("button");
     save.type = "submit";
     save.className = "primary";
@@ -308,7 +337,7 @@ async function refreshChannels() {
       edit.hidden = false;
       edit.focus();
     };
-    editor.append(nameLabel, urlLabel, save, cancel);
+    editor.append(nameLabel, providerLabel, urlLabel, goshLabel, save, cancel);
     editor.onsubmit = async (event) => {
       event.preventDefault();
       if (!nameInput.value.trim()) {
@@ -322,7 +351,9 @@ async function refreshChannels() {
           action: "update",
           id: channel.deleteId,
           displayname: nameInput.value.trim(),
-          url: urlInput.value.trim(),
+          url: providerInput.value === "gosh" ? "" : urlInput.value.trim(),
+          provider: providerInput.value,
+          goshId: goshInput.value.trim(),
           expected: {
             displayname: channel.displayname,
             original: channel.original || "",
@@ -345,6 +376,9 @@ async function refreshChannels() {
     edit.textContent = "Edit";
     edit.setAttribute("aria-label", "Edit " + channel.displayname);
     edit.onclick = () => {
+      providerInput.value = channel.platform === "m3u8" ? "gosh" : "url";
+      goshInput.value = channel.platform === "m3u8" ? channel.details : "";
+      updateSourceFields();
       nameInput.value = channel.displayname;
       nameInput.setCustomValidity("");
       urlInput.value = channel.original || channel.url || "";

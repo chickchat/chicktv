@@ -1,15 +1,22 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <link rel="icon" type="image/png" href="assets/chicktv-chick-three-quarter.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="assets/chicktv-chick-three-quarter.png"
+    />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <script src="twitch-popup.js?v=admin-20261017-1"></script>
     <title>ChickTV — Your channels. Your people.</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="features.css" />
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js" defer></script>
-    <script src="config.js?v=twitch-20261017-2" defer></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js"
+      defer
+    ></script>
+    <script src="config.js?v=environment-20261018-1" defer></script>
     <script src="language.js" defer></script>
     <script src="twitch-login.js" defer></script>
     <script src="chat-send.js" defer></script>
@@ -39,18 +46,28 @@
         <button id="request-channel">Request channel</button
         ><button id="add-channel">＋ Personal channel</button
         ><button class="primary" id="add-screen">▣ Add screen</button
-        ><button id="language-toggle" type="button" aria-label="Switch language">English</button>
+        ><button
+          id="language-toggle"
+          type="button"
+          aria-label="Switch language"
+        >
+          English
+        </button>
       </div>
     </header>
     <nav>
-      <div class="rail-label">YOUR CHANNELS <span id="channel-count"></span></div>
+      <div class="rail-label">
+        YOUR CHANNELS <span id="channel-count"></span>
+      </div>
       <div id="channels"></div>
     </nav>
     <section class="personal-strip">
       <span>MY CHANNELS</span>
       <div id="personal-channels"></div>
     </section>
-    <div id="status-note" class="status-note">Checking channel availability…</div>
+    <div id="status-note" class="status-note">
+      Checking channel availability…
+    </div>
     <main>
       <section class="watch">
         <div class="section-top">
@@ -64,7 +81,10 @@
         </div>
         <div id="screens"></div>
         <div class="watch-footer">
-          <span>● <b id="screen-count">1 screen</b> · Click a screen, then pick a channel</span>
+          <span
+            >● <b id="screen-count">1 screen</b> · Click a screen, then pick a
+            channel</span
+          >
         </div>
       </section>
       <aside>
@@ -87,7 +107,10 @@
           <div class="welcome">
             <span>✳</span>
             <h3>Welcome to the coop</h3>
-            <p>Live Twitch messages appear here.<br />Say hello and watch together.</p>
+            <p>
+              Live Twitch messages appear here.<br />Say hello and watch
+              together.
+            </p>
           </div>
         </div>
         <div class="composer">
@@ -118,6 +141,18 @@
             maxlength="40"
             placeholder="My favorite channel" /></label
         ><label
+          >Provider<select name="provider" id="channel-provider">
+            <option value="url">Other providers (URL)</option>
+            <option value="gosh">Gosh</option>
+          </select></label
+        ><label id="channel-gosh-field" hidden
+          >Gosh channel ID<input
+            name="goshId"
+            maxlength="80"
+            pattern="[A-Za-z0-9_-]{1,80}"
+            placeholder="meidingdang"
+            disabled /></label
+        ><label id="channel-url-field"
           >Channel or video URL<input
             name="url"
             type="url"
@@ -125,10 +160,12 @@
             placeholder="https://twitch.tv/channel"
         /></label>
         <p class="hint">
-          Supports Twitch, Kick, YouTube, direct MP4 / HLS, and HTTPS embed URLs. Providers must
-          allow embedding.
+          Supports Twitch, Kick, YouTube, direct MP4 / HLS, and HTTPS embed
+          URLs. Providers must allow embedding.
         </p>
-        <button class="primary" id="channel-submit">Add personal channel</button>
+        <button class="primary" id="channel-submit">
+          Add personal channel
+        </button>
       </form>
     </dialog>
     <div id="toast" role="status"></div>
@@ -145,13 +182,19 @@
           </button>
         </div>
         <label
-          >通知顯示訊息<input id="alert-message" required maxlength="120" autocomplete="off"
+          >通知顯示訊息<input
+            id="alert-message"
+            required
+            maxlength="120"
+            autocomplete="off"
         /></label>
         <p id="alert-support" class="hint"></p>
         <div class="alert-actions">
           <button type="submit" class="primary">儲存並啟用</button
           ><button type="button" id="alert-disable">關閉通知</button
-          ><button type="button" onclick="this.closest('dialog').close()">取消</button>
+          ><button type="button" onclick="this.closest('dialog').close()">
+            取消
+          </button>
         </div>
       </form>
     </dialog>

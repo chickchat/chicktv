@@ -12,6 +12,20 @@ function resolveExternalReply(marker) {
     (row) => row.id && row.login.toLowerCase() === marker.login.toLowerCase() && row.at === marker.at
   );
   if (savedMessage) return { id: savedMessage.id, name: savedMessage.name, text: savedMessage.text, ancestors: savedMessage.reply ? [...(savedMessage.reply.ancestors || []), savedMessage.reply] : [] };
+  // Locally echoed sends can precede Twitch's server timestamp by a small amount.
+  // Only use this fallback for a single self-authored candidate; never guess among replies.
+  const candidates = new Map();
+  for (const bubble of document.querySelector('#messages')?.querySelectorAll('.bubble') || []) {
+    if (bubble.dataset.id && bubble.dataset.localTimestamp === 'true' &&
+        bubble.dataset.login?.toLowerCase() === marker.login.toLowerCase() &&
+        Math.abs(Number(bubble.dataset.at) - marker.at) <= 5000)
+      candidates.set(bubble.dataset.id, { id: bubble.dataset.id, name: bubble.chatName || marker.login, text: bubble.dataset.text });
+  }
+  if (typeof readChatHistory === 'function') for (const row of readChatHistory()) {
+    if (row.id && row.localTimestamp && row.login.toLowerCase() === marker.login.toLowerCase() && Math.abs(row.at - marker.at) <= 5000 && !candidates.has(row.id))
+      candidates.set(row.id, { id: row.id, name: row.name, text: row.text, ancestors: row.reply ? [...(row.reply.ancestors || []), row.reply] : [] });
+  }
+  if (candidates.size === 1) return [...candidates.values()][0];
   return { id: 'external-' + marker.login.toLowerCase() + '-' + marker.at, name: marker.login, text: document.documentElement.lang === 'en' ? 'Original message is not loaded.' : '原訊息未載入。' };
 }
 let outgoing = null;
@@ -192,6 +206,10 @@ function outgoingResult(line, tags) {
     outgoing = null;
     clearTimeout(p.timer);
     p.bubble.dataset.id = tags.id;
+    const serverAt = Number(tags['tmi-sent-ts']);
+    const confirmedAt = serverAt > 0 ? serverAt : Number(p.bubble.dataset.at);
+    p.bubble.dataset.at = String(confirmedAt);
+    p.bubble.dataset.localTimestamp = String(!(serverAt > 0));
     addReplyButton(p.bubble, p.name || p.login);
     p.status.remove();
     if (typeof rememberChat === "function")
@@ -201,10 +219,11 @@ function outgoingResult(line, tags) {
         tags.id,
         true,
         p.login,
-        Date.now(),
+        confirmedAt,
         tags.badges ?? p.badges ?? "",
         tags.color || p.color || "",
         p.reply,
+        !(serverAt > 0),
       );
     trackChatter(p.name || p.login, p.login, tags.id);
   } else if (

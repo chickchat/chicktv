@@ -1,10 +1,6 @@
 let requestMode = false,
   userChoseChannel = false;
-const localCommunity =
-  ["localhost", "127.0.0.1"].includes(location.hostname) &&
-  !window.CHICKTV_CONFIG.apiBaseUrl;
-const communityEnabled =
-  localCommunity || /^https:\/\//.test(window.CHICKTV_CONFIG.apiBaseUrl);
+const communityEnabled = window.CHICKTV_CONFIG.backendEnabled;
 function communityEndpoint(path) {
   return (
     (window.CHICKTV_CONFIG.apiBaseUrl.replace(/\/$/, "") || location.origin) +

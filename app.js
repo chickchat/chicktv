@@ -5,7 +5,7 @@ function goshEndpoint(channel) {
   const url = new URL(
     (base ? base.replace(/\/$/, "") : location.origin) + "/api/gosh",
   );
-  if (url.protocol !== "https:" && url.hostname !== location.hostname)
+  if (!window.CHICKTV_CONFIG.backendEnabled)
     throw Error("Backend must use HTTPS");
   url.searchParams.set("channel", channel);
   return url.href;
@@ -336,50 +336,105 @@ $("#add-channel").onclick = () => $("#channel-dialog").showModal();
 document
   .querySelectorAll("[data-close]")
   .forEach((b) => (b.onclick = () => b.closest("dialog").close()));
+function updateChannelSourceFields() {
+  const gosh = $("#channel-provider").value === "gosh";
+  for (const [selector, active] of [
+    ["#channel-gosh-field", gosh],
+    ["#channel-url-field", !gosh],
+  ]) {
+    const field = $(selector);
+    field.hidden = !active;
+    field.style.display = active ? "" : "none";
+    const input = field.querySelector("input");
+    input.disabled = !active;
+    input.required = active;
+  }
+}
+$("#channel-provider").onchange = updateChannelSourceFields;
+$("#channel-form").addEventListener("reset", () =>
+  queueMicrotask(updateChannelSourceFields),
+);
+updateChannelSourceFields();
 $("#channel-form").onsubmit = async (e) => {
   e.preventDefault();
-  const f = new FormData(e.target),
-    u = new URL(f.get("url"));
-  if (u.protocol !== "https:") {
-    toast("Please use a secure HTTPS URL.");
+  const f = new FormData(e.target);
+  let c;
+  if (f.get("provider") === "gosh") {
+    const id = String(f.get("goshId") || "").trim();
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) {
+      toast("Enter a valid Gosh channel ID.");
+      return;
+    }
+    c = {
+      displayname: f.get("name").trim(),
+      provider: "gosh",
+      goshId: id,
+      platform: "m3u8",
+      details: id,
+      url: "",
+      original: "https://gosh.com/" + id,
+      custom: true,
+    };
+  } else {
+    let u;
+    try {
+      u = new URL(f.get("url"));
+    } catch {
+      toast("Enter a valid channel URL.");
+      return;
+    }
+    if (u.protocol !== "https:") {
+      toast("Please use a secure HTTPS URL.");
+      return;
+    }
+    c = {
+      displayname: f.get("name").trim(),
+      url: u.href,
+      original: u.href,
+      platform: "embed",
+      custom: true,
+    };
+    if (!c.displayname) return;
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "twitch.tv") {
+      c.platform = "twitch";
+      c.details = u.pathname.split("/")[1];
+      if (!/^[a-z0-9_]+$/i.test(c.details || "")) {
+        toast("Enter a Twitch channel URL.");
+        return;
+      }
+    } else if (host === "kick.com") {
+      const name = u.pathname.split("/")[1];
+      if (!/^[a-z0-9_-]+$/i.test(name || "")) {
+        toast("Enter a Kick channel URL.");
+        return;
+      }
+      c.url = "https://player.kick.com/" + name;
+      c.platform = "vl";
+    } else if (["youtube.com", "youtu.be", "m.youtube.com"].includes(host)) {
+      const id =
+        host === "youtu.be"
+          ? u.pathname.slice(1)
+          : u.searchParams.get("v") || u.pathname.split("/").pop();
+      if (!/^[\w-]{11}$/.test(id || "")) {
+        toast("Use a YouTube video or live video URL.");
+        return;
+      }
+      c.url = "https://www.youtube.com/embed/" + id;
+    } else if (/\.(m3u8|mp4|webm)$/i.test(u.pathname)) c.platform = "video";
+    c.url = providerPlayerUrl(c.url);
+  }
+  if (!c.displayname) return;
+  if (
+    !requestMode &&
+    c.platform === "m3u8" &&
+    channels.some(
+      (channel) => channel.platform === "m3u8" && channel.details === c.details,
+    )
+  ) {
+    toast("This Gosh channel is already listed.");
     return;
   }
-  let c = {
-    displayname: f.get("name").trim(),
-    url: u.href,
-    original: u.href,
-    platform: "embed",
-    custom: true,
-  };
-  if (!c.displayname) return;
-  const host = u.hostname.replace(/^www\./, "");
-  if (host === "twitch.tv") {
-    c.platform = "twitch";
-    c.details = u.pathname.split("/")[1];
-    if (!/^[a-z0-9_]+$/i.test(c.details || "")) {
-      toast("Enter a Twitch channel URL.");
-      return;
-    }
-  } else if (host === "kick.com") {
-    const name = u.pathname.split("/")[1];
-    if (!/^[a-z0-9_-]+$/i.test(name || "")) {
-      toast("Enter a Kick channel URL.");
-      return;
-    }
-    c.url = "https://player.kick.com/" + name;
-    c.platform = "vl";
-  } else if (["youtube.com", "youtu.be", "m.youtube.com"].includes(host)) {
-    const id =
-      host === "youtu.be"
-        ? u.pathname.slice(1)
-        : u.searchParams.get("v") || u.pathname.split("/").pop();
-    if (!/^[\w-]{11}$/.test(id || "")) {
-      toast("Use a YouTube video or live video URL.");
-      return;
-    }
-    c.url = "https://www.youtube.com/embed/" + id;
-  } else if (/\.(m3u8|mp4|webm)$/i.test(u.pathname)) c.platform = "video";
-  c.url = providerPlayerUrl(c.url);
   if (requestMode) {
     await submitRequest(c);
     return;
@@ -422,7 +477,8 @@ function message(
 ) {
   const externalReply = parseExternalReply(text);
   text = externalReply.text;
-  if (!reply && externalReply.login) reply = resolveExternalReply(externalReply);
+  if (!reply && externalReply.login)
+    reply = resolveExternalReply(externalReply);
   reply = normalizeReplyChain(reply);
   if (!restoringHistory && !self) trackChatter(name, login, id);
   if (!self)
@@ -437,6 +493,7 @@ function message(
   b.chatReply = reply;
   b.chatName = name;
   b.dataset.at = String(at);
+  b.dataset.localTimestamp = String(self);
   if (reply?.id) b.append(replyQuote(reply));
   const author = el("div", "chat-author");
   applyChatColor(author, color);

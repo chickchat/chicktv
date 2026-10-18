@@ -4,7 +4,7 @@ Watch streams and chat together.
 
 Website: https://chickchat.github.io/chicktv/
 
-This repository contains public browser files only. Private admin access settings, credentials, and local server data are excluded.
+This repository contains public browser files and local preview tooling only. Private admin access settings, credentials, and local server data are excluded.
 
 ## Publishing
 
@@ -20,6 +20,6 @@ Stream lookups and status checks use a separately hosted Cloudflare Worker. GitH
 
 ## Local preview
 
-With Node.js installed, run `node local-preview.mjs` from this folder, then open http://localhost:4173/ . Keep the terminal open while previewing. Backend requests still use the production Cloudflare backend; administrative changes affect live data.
+With Node.js installed, run `node local-preview.mjs` from this folder, then open http://localhost:4173/ . Keep the terminal open while previewing. On localhost or 127.0.0.1, the frontend automatically uses the local Worker at http://localhost:8787. Start the private backend with npm run dev as well. The published site automatically uses the production HTTPS Cloudflare backend.
 
 The publishing workflow includes only browser files, `admin/`, and `assets/`. The local preview server and README are not included in the deployed website.

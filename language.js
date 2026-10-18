@@ -1,6 +1,12 @@
 // Translate interface text only; channel names and chat messages are user content.
 (() => {
   const labels = {
+    Provider: '平台',
+    'Other providers (URL)': '其他平台（網址）',
+    'Gosh channel ID': 'Gosh 頻道 ID',
+    'Enter a valid Gosh channel ID.': '請輸入有效的 Gosh 頻道 ID。',
+    'This Gosh channel is already listed.': '此 Gosh 頻道已在清單中。',
+    'Enter a valid channel URL.': '請輸入有效的頻道網址。',
     Image: '圖片',
     Video: '影片',
     Close: '關閉',
@@ -120,7 +126,11 @@
       'aria-label',
       language === 'en' ? 'Switch to Traditional Chinese' : '切換至英文'
     );
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
   }
   const observer = new MutationObserver(apply);
   document.querySelector('#language-toggle').onclick = () => {
