@@ -1,3 +1,19 @@
+// Some chat clients encode replies in the message body instead of Twitch tags.
+function parseExternalReply(text) {
+  const match = typeof text === 'string' && text.match(/^\[r\]([a-z0-9_]{1,25}),(\d{13})\[m\]\s?/i);
+  return match ? { text: text.slice(match[0].length), login: match[1], at: Number(match[2]) } : { text };
+}
+function resolveExternalReply(marker) {
+  const loaded = [...(document.querySelector('#messages')?.querySelectorAll('.bubble') || [])].find(
+    (bubble) => bubble.dataset.login?.toLowerCase() === marker.login.toLowerCase() && Number(bubble.dataset.at) === marker.at
+  );
+  if (loaded?.dataset.id) return { id: loaded.dataset.id, name: loaded.chatName || marker.login, text: loaded.dataset.text };
+  const savedMessage = typeof readChatHistory === 'function' && readChatHistory().find(
+    (row) => row.id && row.login.toLowerCase() === marker.login.toLowerCase() && row.at === marker.at
+  );
+  if (savedMessage) return { id: savedMessage.id, name: savedMessage.name, text: savedMessage.text, ancestors: savedMessage.reply ? [...(savedMessage.reply.ancestors || []), savedMessage.reply] : [] };
+  return { id: 'external-' + marker.login.toLowerCase() + '-' + marker.at, name: marker.login, text: document.documentElement.lang === 'en' ? 'Original message is not loaded.' : '原訊息未載入。' };
+}
 let outgoing = null;
 let replyTarget = null;
 function cancelReply() {
@@ -7,7 +23,7 @@ function cancelReply() {
 function selectReply(bubble, name) {
   if (!/^[\w-]+$/.test(bubble.dataset.id || "")) return;
   cancelReply();
-  replyTarget = { id: bubble.dataset.id, name, text: bubble.dataset.text };
+  replyTarget = normalizeReplyChain({ id: bubble.dataset.id, name, text: bubble.dataset.text });
   const preview = el("div", "reply-preview");
   preview.id = "reply-preview";
   preview.append(replyQuote(replyTarget));
@@ -26,11 +42,76 @@ function addReplyButton(bubble, name) {
   button.onclick = () => selectReply(bubble, name);
   bubble.append(button);
 }
+function jumpToReplyMessage(id) {
+  const list = document.querySelector('#messages');
+  const target = [...(list?.querySelectorAll('.bubble') || [])].find(
+    (bubble) => bubble.dataset.id === id
+  );
+  if (!target) {
+    toast(document.documentElement.lang === 'en'
+      ? 'The original message is no longer available in this chat.'
+      : '原訊息已不在目前的聊天紀錄中。');
+    return;
+  }
+  list.querySelectorAll('.reply-jump-highlight').forEach((bubble) => bubble.classList.remove('reply-jump-highlight'));
+  const listRect = list.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  list.scrollTo({
+    top: list.scrollTop + targetRect.top - listRect.top - (list.clientHeight - targetRect.height) / 2,
+    behavior: reducedMotion ? 'instant' : 'smooth'
+  });
+  target.tabIndex = -1;
+  target.focus({ preventScroll: true });
+  target.classList.add('reply-jump-highlight');
+  clearTimeout(target.replyJumpTimer);
+  target.replyJumpTimer = setTimeout(() => target.classList.remove('reply-jump-highlight'), 1800);
+}
+function normalizeReplyChain(reply) {
+  if (!reply || typeof reply.id !== 'string' || !reply.id || typeof reply.name !== 'string' || typeof reply.text !== 'string') return null;
+  const validItem = (item) => item && typeof item.id === 'string' && item.id && typeof item.name === 'string' && typeof item.text === 'string';
+  const parent = [...(document.querySelector('#messages')?.querySelectorAll('.bubble') || [])].find((bubble) => bubble.dataset.id === reply.id);
+  const previous = parent?.chatReply;
+  const source = previous ? [...(previous.ancestors || []), previous] : (Array.isArray(reply.ancestors) ? reply.ancestors : []);
+  const seen = new Set([reply.id]);
+  const ancestors = [];
+  for (const item of source.slice(-199)) {
+    if (!validItem(item) || seen.has(item.id)) continue;
+    seen.add(item.id);
+    ancestors.push({ id: item.id.slice(0, 100), name: item.name.slice(0, 100), text: item.text.slice(0, 2000) });
+  }
+  return { id: reply.id.slice(0, 100), name: reply.name.slice(0, 100), text: reply.text.slice(0, 2000), ancestors };
+}
 function replyQuote(reply) {
-  const quote = el("div", "reply-quote");
-  quote.append(el("div", "reply-author", "↪ " + reply.name));
+  const normalized = normalizeReplyChain(reply);
+  if (!normalized) return el('div', 'reply-quote');
+  const chain = el('div', 'reply-chain');
+  chain.setAttribute('role', 'group');
+  chain.setAttribute('aria-label', document.documentElement.lang === 'en' ? 'Conversation being replied to' : '回覆的對話紀錄');
+  for (const item of [...normalized.ancestors, normalized]) chain.append(singleReplyQuote(item));
+  return chain;
+}
+function singleReplyQuote(reply) {
+  const quote = el('div', 'reply-quote');
+  quote.append(el('div', 'reply-author', '↪ ' + reply.name));
   // Preserve the full signed URL: truncating it breaks Discord attachments.
-  quote.append(renderChatContent(reply.text));
+  quote.append(renderChatContent(parseExternalReply(reply.text).text));
+  if (typeof reply.id === 'string' && reply.id) {
+    quote.tabIndex = 0;
+    quote.setAttribute('role', 'link');
+    quote.setAttribute('aria-label', document.documentElement.lang === 'en'
+      ? 'Jump to original message from ' + reply.name
+      : '跳至 ' + reply.name + ' 的原訊息');
+    quote.onclick = (event) => {
+      if (event.target.closest('a, button, video, iframe')) return;
+      jumpToReplyMessage(reply.id);
+    };
+    quote.onkeydown = (event) => {
+      if (event.target !== quote || !['Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      jumpToReplyMessage(reply.id);
+    };
+  }
   return quote;
 }
 function sendChat(event) {

@@ -6,31 +6,32 @@ function chatMedia(text) {
   try {
     const url = new URL(match[2]);
     if (url.protocol !== "https:" || url.username || url.password) return null;
-    const kind =
-      /^(s|img)$/i.test(match[1]) ||
-      /\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)
-        ? "image"
-        : "video";
-    const host = url.hostname.replace(/^www\./, "");
-    let embed = null;
-    if (
-      kind === "video" &&
-      ["youtube.com", "m.youtube.com", "youtu.be"].includes(host)
-    ) {
-      const id =
-        host === "youtu.be"
-          ? url.pathname.slice(1)
-          : url.searchParams.get("v") || url.pathname.split("/").pop();
-      if (/^[\w-]{11}$/.test(id || ""))
-        embed = "https://www.youtube-nocookie.com/embed/" + id;
+    const host = url.hostname.replace(/^www\./, '');
+    const youtube = ['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host);
+    let youtubeId = null;
+    if (youtube) {
+      if (host === 'youtu.be') youtubeId = url.pathname.split('/')[1];
+      else if (url.pathname === '/watch') youtubeId = url.searchParams.get('v');
+      else {
+        const path = url.pathname.match(/^\/(?:shorts|live|embed)\/([\w-]{11})(?:\/|$)/);
+        youtubeId = path?.[1];
+      }
     }
+    const embed = /^[\w-]{11}$/.test(youtubeId || '')
+      ? 'https://www.youtube-nocookie.com/embed/' + youtubeId
+      : null;
+    const directVideo = /\.(mp4|webm)$/i.test(url.pathname);
+    // A recognized video URL takes priority over another client's generic [s] tag.
+    const kind = embed || directVideo ? 'video'
+      : /^(s|img)$/i.test(match[1]) || /\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)
+        ? 'image' : 'video';
     return {
       kind,
       url: url.href,
       embed,
       start: match.index,
       end: match.index + match[0].length,
-      directVideo: /\.(mp4|webm)$/i.test(url.pathname),
+      directVideo,
     };
   } catch {
     return null;
@@ -52,7 +53,7 @@ function renderChatContent(text) {
   link.href = media.url;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  if (media.kind !== "image") content.append(link);
+
   let player;
   if (media.kind === "image") {
     player = el("img");
@@ -77,7 +78,7 @@ function renderChatContent(text) {
   if (player) {
     player.onerror = () => {
       player.remove();
-      if (media.kind === "image") content.append(link);
+      content.append(link);
       content.append(
         el("small", "", "Preview unavailable. Use the link above."),
       );
@@ -92,7 +93,7 @@ function renderChatContent(text) {
         link.textContent = "Open image ↗";
       };
     } else content.append(player);
-  }
+  } else content.append(link);
   if (media.end < text.length)
     content.append(el("span", "", text.slice(media.end)));
   return content;

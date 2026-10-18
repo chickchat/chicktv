@@ -420,6 +420,10 @@ function message(
   color = "",
   reply = null,
 ) {
+  const externalReply = parseExternalReply(text);
+  text = externalReply.text;
+  if (!reply && externalReply.login) reply = resolveExternalReply(externalReply);
+  reply = normalizeReplyChain(reply);
   if (!restoringHistory && !self) trackChatter(name, login, id);
   if (!self)
     rememberChat(name, text, id, self, login, at, badges, color, reply);
@@ -430,6 +434,9 @@ function message(
   b.dataset.id = id;
   b.dataset.login = login;
   b.dataset.text = text;
+  b.chatReply = reply;
+  b.chatName = name;
+  b.dataset.at = String(at);
   if (reply?.id) b.append(replyQuote(reply));
   const author = el("div", "chat-author");
   applyChatColor(author, color);
@@ -526,7 +533,7 @@ function connect() {
           tags.id,
           false,
           m[1],
-          Date.now(),
+          Number(tags["tmi-sent-ts"]) || Date.now(),
           tags.badges || "",
           tags.color || "",
           tags["reply-parent-msg-id"]

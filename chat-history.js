@@ -59,7 +59,8 @@ function rememberChat(
         ? {
             id: reply.id.slice(0, 100),
             name: reply.name.slice(0, 100),
-            text: reply.text.slice(0, 2000)
+            text: reply.text.slice(0, 2000),
+            ancestors: normalizeReplyChain(reply)?.ancestors || []
           }
         : null,
     color: typeof color === 'string' && /^#[\da-f]{6}$/i.test(color) ? color : '',
