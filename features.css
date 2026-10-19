@@ -580,3 +580,7 @@ aside #auth-note {
   display: grid;
   gap: 6px;
 }
+
+.x-post { min-width: 0; max-width: 100%; overflow: hidden; }
+.chat-media .x-post iframe, .reply-quote .x-post iframe { aspect-ratio: auto; max-height: none; }
+.x-post .media-link[hidden] { display: none; }

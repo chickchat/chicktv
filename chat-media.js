@@ -1,12 +1,58 @@
+let xWidgetPromise;
+function loadXWidgets() {
+  if (window.twttr?.widgets?.createTweet) return Promise.resolve(window.twttr.widgets);
+  if (xWidgetPromise) return xWidgetPromise;
+  xWidgetPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://platform.twitter.com/widgets.js'; script.async = true;
+    script.referrerPolicy = 'no-referrer';
+    const timer = setTimeout(() => { script.remove(); reject(Error('X embed timeout')); }, 15000);
+    script.onload = () => {
+      clearTimeout(timer);
+      if (window.twttr?.widgets?.createTweet) resolve(window.twttr.widgets);
+      else reject(Error('X embed unavailable'));
+    };
+    script.onerror = () => { clearTimeout(timer); script.remove(); reject(Error('X embed blocked')); };
+    document.head.append(script);
+  });
+  return xWidgetPromise;
+}
+function createXPost(id) {
+  const container = el('div', 'x-post');
+  const mount = el('div', 'x-post-widget');
+  container.append(mount);
+  async function load() {
+    if (!container.isConnected) return;
+    try {
+      const widgets = await loadXWidgets();
+      if (!container.isConnected) return;
+      const widget = await widgets.createTweet(id, mount, { dnt: true, conversation: 'none', align: 'center' });
+      if (!widget) mount.remove();
+    } catch { /* X may decline to embed deleted, restricted or unavailable posts. */ }
+  }
+  if (typeof IntersectionObserver === 'function') {
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); void load(); }
+    });
+    observer.observe(container);
+  } else setTimeout(load, 0);
+  return container;
+}
 function chatMedia(text) {
-  const match = text.match(
+  let match = text.match(
     /\[(s|img|video|v|y)\]\s*(https:\/\/[^\s<>\[\]]+)(?:\s*\[(?:t|e)\]|\s*\[\/(?:s|img|video|v|y)\])?/i,
   );
+  if (!match) {
+    const plain = text.match(/https:\/\/(?:www\.|mobile\.)?(?:x\.com|twitter\.com)\/[^\s<>\[\]]+/i);
+    if (plain) { match = [plain[0], 'post', plain[0]]; match.index = plain.index; }
+  }
   if (!match) return null;
   try {
     const url = new URL(match[2]);
     if (url.protocol !== "https:" || url.username || url.password) return null;
     const host = url.hostname.replace(/^www\./, '');
+    const xHost = ['x.com', 'twitter.com', 'mobile.x.com', 'mobile.twitter.com'].includes(host);
+    const xPostId = xHost ? url.pathname.match(/^\/(?:[a-zA-Z0-9_]{1,25}\/status|i\/(?:web\/)?status)\/(\d{1,25})(?:\/(?:photo|video)\/\d+)?\/?$/)?.[1] : null;
     const youtube = ['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host);
     let youtubeId = null;
     if (youtube) {
@@ -22,7 +68,7 @@ function chatMedia(text) {
       : null;
     const directVideo = /\.(mp4|webm)$/i.test(url.pathname);
     // A recognized video URL takes priority over another client's generic [s] tag.
-    const kind = embed || directVideo ? 'video'
+    const kind = xPostId ? 'x-post' : embed || directVideo ? 'video'
       : /^(s|img)$/i.test(match[1]) || /\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)
         ? 'image' : 'video';
     return {
@@ -32,6 +78,7 @@ function chatMedia(text) {
       start: match.index,
       end: match.index + match[0].length,
       directVideo,
+      xPostId,
     };
   } catch {
     return null;
@@ -49,14 +96,16 @@ function renderChatContent(text) {
   const link = el(
     "a",
     "media-link",
-    media.kind === "image" ? "Open image ↗" : "Open video ↗",
+    media.kind === "x-post" ? "" : media.kind === "image" ? "Open image ↗" : "Open video ↗",
   );
   link.href = media.url;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
 
   let player;
-  if (media.kind === "image") {
+  if (media.kind === "x-post") {
+    player = createXPost(media.xPostId);
+  } else if (media.kind === "image") {
     player = el("img");
     player.alt = "Image shared in chat";
     player.loading = "lazy";
@@ -84,7 +133,9 @@ function renderChatContent(text) {
     player.referrerPolicy = "no-referrer";
     player.src = media.url;
   }
-  if (player) {
+  if (media.kind === "x-post") {
+    content.append(player);
+  } else if (player) {
     player.onerror = () => {
       player.remove();
       content.append(link);

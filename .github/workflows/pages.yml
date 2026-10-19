@@ -23,6 +23,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/chicktv-site"
           cp -- *.html *.css *.js channels.json sk-emotes.json sk-emote-packs.json .nojekyll "$RUNNER_TEMP/chicktv-site/"
           cp -R -- admin assets "$RUNNER_TEMP/chicktv-site/"
+      - name: Version scripts and styles
+        run: node scripts/version-release.mjs "$RUNNER_TEMP/chicktv-site" "$GITHUB_SHA"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ runner.temp }}/chicktv-site
