@@ -72,7 +72,15 @@ function renderChatContent(text) {
   } else if (media.directVideo) {
     player = el("video");
     player.controls = true;
-    player.preload = "none";
+    player.preload = "metadata";
+    player.playsInline = true;
+    // Request an early frame for the paused preview after learning the duration.
+    // Keep the original signed URL untouched and never start playback automatically.
+    player.addEventListener("loadedmetadata", () => {
+      if (player.paused && player.currentTime === 0 && Number.isFinite(player.duration) && player.duration > 0) {
+        try { player.currentTime = Math.min(0.01, player.duration / 2); } catch {}
+      }
+    }, { once: true });
     player.referrerPolicy = "no-referrer";
     player.src = media.url;
   }

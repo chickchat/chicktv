@@ -278,7 +278,7 @@ aside #auth-note {
   display: inline-block;
 }
 .chat-emote.sk {
-  height: 160px;
+  height: var(--sk-emote-size, 160px);
   max-height: 200px;
   max-width: 100%;
   width: auto;

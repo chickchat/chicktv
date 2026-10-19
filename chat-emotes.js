@@ -6,6 +6,17 @@ let emoteMode = 'sk',
 let emotePack = 'channel',
   emotePacks = [],
   emoteTabs;
+// Fixed display heights: keep small pixel-art packs close to their intended scale.
+function stickerSize(pack) {
+  if (['hkg1', 'hkg2'].includes(pack)) return 32;
+  if (['lomoreList', 'helloweenlomore', 'eventlistrnd2016', 'event2listRC2016', 'hiddenlist'].includes(pack)) return 70;
+  if (/^Set[1-7]List$/.test(pack)) return 80;
+  return 160;
+}
+function applyStickerSize(image, pack) {
+  image.dataset.emotePack = pack || '';
+  image.style.setProperty('--sk-emote-size', stickerSize(pack) + 'px');
+}
 function filteredEmotes(mode, pack, query = '') {
   return [...chatEmotes.values()].filter(
     (x) =>
@@ -83,6 +94,7 @@ function renderEmoteText(text) {
     if (part.text !== undefined) span.append(document.createTextNode(part.text));
     else {
       const image = el('img', 'chat-emote ' + part.emote.provider);
+      if (part.emote.provider === 'sk') applyStickerSize(image, part.emote.pack);
       image.src = part.emote.url;
       image.alt = part.emote.code;
       image.title = part.emote.code;
