@@ -493,6 +493,7 @@ function message(
   b.chatReply = reply;
   b.chatName = name;
   b.dataset.at = String(at);
+  b.dataset.receivedAt = String(Date.now());
   b.dataset.localTimestamp = String(self);
   if (reply?.id) b.append(replyQuote(reply));
   const author = el("div", "chat-author");
@@ -529,8 +530,7 @@ function message(
   );
   list.append(b);
   if (id) addReplyButton(b, name);
-  while (list.querySelectorAll(".bubble").length > 200)
-    list.querySelector(".bubble").remove();
+  if (!restoringHistory) pruneChatMessages();
   if (near) list.scrollTop = list.scrollHeight;
   return b;
 }
@@ -636,9 +636,9 @@ async function start() {
     renderTabs();
     renderScreens();
     const featuresReady = initFeatures();
+    restoreChatHistory();
     await auth();
     void checkAvailability(false);
-    restoreChatHistory();
     connect();
     await featuresReady;
   } catch {
