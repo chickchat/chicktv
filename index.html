@@ -29,6 +29,7 @@
     <script src="provider-links.js" defer></script>
     <script src="app.js" defer></script>
     <script src="features.js" defer></script>
+    <script src="chat-view.js" defer></script>
   </head>
   <body>
     <header>
@@ -95,6 +96,9 @@
             <h2>The chicken coop <span>TWITCH</span></h2>
             <p>Whitewing940920 · <span id="connection">Connecting…</span></p>
           </div>
+          <button id="chat-view-toggle" type="button" role="switch" aria-checked="false" aria-controls="messages native-chat">
+            Twitch <span class="chat-switch-track" aria-hidden="true"><span></span></span>
+          </button>
           <a
             href="https://www.twitch.tv/Whitewing940920"
             target="_blank"
@@ -127,6 +131,7 @@
           </form>
           <button id="login">Connect to Twitch ↗</button>
         </div>
+        <div id="native-chat" hidden></div>
       </aside>
     </main>
     <dialog id="channel-dialog">

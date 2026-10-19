@@ -584,3 +584,21 @@ aside #auth-note {
 .x-post { min-width: 0; max-width: 100%; overflow: hidden; }
 .chat-media .x-post iframe, .reply-quote .x-post iframe { aspect-ratio: auto; max-height: none; }
 .x-post .media-link[hidden] { display: none; }
+
+/* Keep the hidden custom-chat elements mounted so receiving and saving continue. */
+#chat-view-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px; }
+.chat-switch-track { display: inline-flex; align-items: center; width: 36px; height: 22px; border-radius: 12px; background: #515a50; padding: 3px; box-sizing: border-box; }
+.chat-switch-track > span { width: 16px; height: 16px; border-radius: 50%; background: #edf3e8; }
+#chat-view-toggle[aria-checked="true"] .chat-switch-track { background: #9146ff; }
+#chat-view-toggle[aria-checked="true"] .chat-switch-track > span { transform: translateX(14px); }
+aside.native-chat-active > #messages, aside.native-chat-active > .composer { display: none; }
+#native-chat { flex: 1; min-height: 0; display: flex; }
+#native-chat[hidden] { display: none; }
+#native-chat iframe { display: block; width: 100%; height: 100%; flex: 1; min-height: 0; border: 0; }
+
+.chat-head { gap: 8px; flex-shrink: 0; }
+.chat-head > div:nth-child(2) { min-width: 0; flex: 1; }
+.chat-head h2, .chat-head p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-head .avatar, .chat-head > a, #chat-view-toggle { flex-shrink: 0; }
+.chat-head > a { margin-left: 0; }
+#chat-view-toggle { font-size: 12px; padding: 5px; gap: 5px; }
