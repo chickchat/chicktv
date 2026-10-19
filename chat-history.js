@@ -90,7 +90,7 @@ function moderateChatHistory(line, tags) {
 }
 function pruneChatMessages() {
   const bubbles = [...document.querySelectorAll('#messages .bubble')];
-  for (const bubble of bubbles.slice(0, Math.max(0, bubbles.length - 30))) bubble.remove();
+  for (const bubble of bubbles.slice(0, Math.max(0, bubbles.length - 200))) bubble.remove();
 }
 function restoreChatHistory() {
   const rows = readChatHistory();
