@@ -467,5 +467,5 @@ async function initFeatures() {
       } catch {}
       void checkAvailability(false);
     }
-  }, 60000);
+  }, 120000);
 }
