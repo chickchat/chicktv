@@ -4,7 +4,7 @@
   const localEnvironment = location.protocol === 'http:' && loopbackHosts.includes(location.hostname);
   const apiBaseUrl = localEnvironment
     ? 'http://localhost:8787'
-    : 'https://chicktv-api.homeboykeroro96.workers.dev';
+    : 'https://chicktv-api.chicktv-services.workers.dev';
   const backend = new URL(apiBaseUrl);
   const backendEnabled = backend.protocol === 'https:' ||
     (localEnvironment && backend.protocol === 'http:' && loopbackHosts.includes(backend.hostname));
