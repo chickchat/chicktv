@@ -522,9 +522,18 @@ code {
   display: none;
   z-index: 5;
 }
-body.theater header,
 body.theater nav,
 body.theater .room-note {
+  display: none;
+}
+body.theater header {
+  height: auto;
+  min-height: 0;
+  padding: 12px;
+  justify-content: flex-end;
+}
+body.theater header .brand,
+body.theater .actions > :not(#layout):not(#theater) {
   display: none;
 }
 body.theater main {
