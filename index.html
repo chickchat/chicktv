@@ -199,5 +199,16 @@
         </div>
       </form>
     </dialog>
+    <!-- Count visits only on the published watch page. -->
+    <script type="module">
+      if (location.hostname === 'chickchat.github.io' &&
+          ['/chicktv/', '/chicktv/index.html'].includes(location.pathname)) {
+        const beacon = document.createElement('script');
+        beacon.type = 'module';
+        beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+        beacon.setAttribute('data-cf-beacon', '{"token":"887a3b2ca3a74edf9cdc6ff7474b2a3b"}');
+        document.body.append(beacon);
+      }
+    </script>
   </body>
 </html>
