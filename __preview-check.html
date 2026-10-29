@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<pre id="result">Loading local script…</pre>
+<script>
+fetch('./features.js?v=personal-order-20261030').then(r => r.text()).then(text => {
+  const at = text.indexOf('personal-actions');
+  document.querySelector('#result').textContent = at < 0 ? 'Updated ordering code not present in served file.' : text.slice(Math.max(0, at - 180), at + 850);
+}).catch(error => { document.querySelector('#result').textContent = String(error); });
+</script>

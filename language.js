@@ -29,6 +29,19 @@
     'Checking channel availability…': '正在檢查頻道狀態…',
     'Click a screen, then pick a channel': '點選畫面，再選擇頻道',
     '· Click a screen, then pick a channel': '· 點選畫面，再選擇頻道',
+    'Choose an available channel': '選擇可用的頻道',
+    'No channels are currently available': '目前沒有可用的頻道',
+    'Hide offline': '隱藏離線',
+    All: '全部',
+    'Edit personal channel': '編輯自助頻道',
+    'Save changes': '儲存變更',
+    'Personal channel updated in this browser.': '已在此瀏覽器更新自助頻道。',
+    'Personal channel order updated in this browser.': '已在此瀏覽器更新自助頻道順序。',
+    'Bring another favorite into your watch room.': '將喜歡的頻道加入觀看區。',
+    'Update this channel’s name or link.': '更新此頻道的名稱或網址。',
+    'Suggest a channel for the shared list.': '推薦頻道加入共用清單。',
+    'Only personal channels can be edited here.': '此處只能編輯自助頻道。',
+    'This personal channel is no longer available to edit.': '此自助頻道已無法編輯。',
     'Your corner of the internet.': '你的網路小天地。',
     'Switch channels. Add another screen. Stay for the conversation.':
       '切換頻道、新增畫面，一起聊天。',
@@ -80,6 +93,8 @@
   function translated(text) {
     const key = text.trim().replace(/\s+/g, ' ');
     if (labels[key]) return text.replace(text.trim(), labels[key]);
+    if (language !== 'en' && key.endsWith(' · Offline'))
+      return text.replace(/ · Offline$/i, ' · 離線');
     if (/^\d+ channel\(s\) confirmed online$/.test(key))
       return key.replace(/ channel\(s\) confirmed online$/, ' 個頻道在線');
     if (/^\d+ channels$/.test(key)) return key.replace(' channels', ' 個頻道');
@@ -127,6 +142,26 @@
       'aria-label',
       language === 'en' ? 'Switch to Traditional Chinese' : '切換至英文'
     );
+    document.querySelectorAll('.screen-channel-filter').forEach((filter) => {
+      filter.setAttribute(
+        'aria-label',
+        language === 'en' ? 'Channel status filter' : '頻道狀態篩選',
+      );
+      filter.title =
+        language === 'en'
+          ? 'Choose whether to include offline channels'
+          : '選擇是否顯示離線頻道';
+    });
+    document.querySelectorAll('.personal-move-up').forEach((button) => {
+      const label = language === 'en' ? 'Move channel up' : '將頻道上移';
+      button.title = label;
+      button.setAttribute('aria-label', label);
+    });
+    document.querySelectorAll('.personal-move-down').forEach((button) => {
+      const label = language === 'en' ? 'Move channel down' : '將頻道下移';
+      button.title = label;
+      button.setAttribute('aria-label', label);
+    });
     observer.observe(document.body, {
       childList: true,
       subtree: true,

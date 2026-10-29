@@ -17,6 +17,17 @@
   max-width: 45%;
   min-width: 0;
 }
+.screen-channel-filter {
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 0.82em;
+  max-width: 22%;
+  min-width: 0;
+}
 .personal-strip > span {
   font-size: 16px;
   font-weight: 600;
@@ -49,6 +60,25 @@ html[lang="zh-Hant"] #personal-channels:empty:after {
   border: 0;
   background: transparent;
   color: var(--green);
+  flex-shrink: 0;
+}
+.personal-action {
+  padding: 4px 6px;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.personal-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.personal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   flex-shrink: 0;
 }
 .leaderboard {

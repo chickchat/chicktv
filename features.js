@@ -115,6 +115,22 @@ function recordAvailability(channel, live, initial) {
 const liveStates = new Map(),
   chatCounts = new Map(),
   seenMessages = new Set();
+function movePersonalChannel(index, direction) {
+  const customIndices = channels.flatMap((channel, channelIndex) =>
+    channel.custom ? [channelIndex] : [],
+  );
+  const position = customIndices.indexOf(index);
+  const target = customIndices[position + direction];
+  if (target === undefined) return;
+  [channels[index], channels[target]] = [channels[target], channels[index]];
+  screens = screens.map((channelIndex) =>
+    channelIndex === index ? target : channelIndex === target ? index : channelIndex,
+  );
+  persist();
+  renderTabs();
+  renderScreens();
+  toast("Personal channel order updated in this browser.");
+}
 const originalRenderTabs = renderTabs;
 renderTabs = function () {
   originalRenderTabs();
@@ -135,19 +151,39 @@ renderTabs = function () {
     b.classList.toggle("channel-online", status === true);
     b.classList.toggle("channel-offline", status === false);
     b.setAttribute("aria-label", c.displayname + " · " + b.title);
-    {
-      const bell = el("button", "bell", subscriptions.has(key) ? "🔔" : "♧");
-      bell.setAttribute(
-        "aria-label",
-        "Configure online alert for " + c.displayname,
-      );
-      bell.setAttribute("aria-pressed", String(subscriptions.has(key)));
-      bell.title = alertText(c);
-      bell.onclick = () => openAlertSettings(c);
-      b.after(bell);
-    }
+    const bell = el("button", "bell", subscriptions.has(key) ? "🔔" : "♧");
+    bell.setAttribute(
+      "aria-label",
+      "Configure online alert for " + c.displayname,
+    );
+    bell.setAttribute("aria-pressed", String(subscriptions.has(key)));
+    bell.title = alertText(c);
+    bell.onclick = () => openAlertSettings(c);
     if (c.custom) {
-      const remove = el("button", "bell", "×");
+      const customIndices = channels.flatMap((channel, channelIndex) =>
+        channel.custom ? [channelIndex] : [],
+      );
+      const position = customIndices.indexOf(i);
+      const actions = el("span", "personal-actions");
+      const moveUp = el("button", "personal-action personal-move-up", "↑");
+      moveUp.type = "button";
+      moveUp.disabled = position === 0;
+      moveUp.onclick = (event) => {
+        event.stopPropagation();
+        movePersonalChannel(i, -1);
+      };
+      const moveDown = el("button", "personal-action personal-move-down", "↓");
+      moveDown.type = "button";
+      moveDown.disabled = position === customIndices.length - 1;
+      moveDown.onclick = (event) => {
+        event.stopPropagation();
+        movePersonalChannel(i, 1);
+      };
+      const edit = el("button", "personal-action", "✎");
+      edit.setAttribute("aria-label", "Edit personal channel " + c.displayname);
+      edit.title = "Edit personal channel";
+      edit.onclick = () => openChannelForm(false, i);
+      const remove = el("button", "personal-action", "×");
       remove.setAttribute(
         "aria-label",
         "Remove personal channel " + c.displayname,
@@ -161,21 +197,51 @@ renderTabs = function () {
         renderTabs();
         renderScreens();
       };
-      b.after(remove);
+      actions.append(moveUp, moveDown, edit, remove, bell);
+      b.after(actions);
+    } else {
+      b.after(bell);
     }
   }
 };
 function channelKey(c) {
   return c.identityKey || c.platform + ":" + (c.details || c.original || c.url);
 }
-function openChannelForm(request) {
+function openChannelForm(request, editIndex = -1) {
   requestMode = request;
+  editingPersonalChannel = editIndex;
+  const form = $("#channel-form");
+  form.reset();
+  const channel = editIndex >= 0 ? channels[editIndex] : null;
+  if (editIndex >= 0 && !channel?.custom) {
+    editingPersonalChannel = -1;
+    toast("Only personal channels can be edited here.");
+    return;
+  }
   $("#channel-title").textContent = request
     ? "Request a permanent channel"
-    : "Add a personal channel";
+    : channel
+      ? "Edit personal channel"
+      : "Add a personal channel";
   $("#channel-submit").textContent = request
     ? "Send request"
-    : "Add personal channel";
+    : channel
+      ? "Save changes"
+      : "Add personal channel";
+  $("#channel-description").textContent = request
+    ? "Suggest a channel for the shared list."
+    : channel
+      ? "Update this channel’s name or link."
+      : "Bring another favorite into your watch room.";
+  if (channel) {
+    form.elements.namedItem("name").value = channel.displayname || "";
+    $("#channel-provider").value = channel.platform === "m3u8" ? "gosh" : "url";
+    form.elements.namedItem("goshId").value =
+      channel.platform === "m3u8" ? channel.details || "" : "";
+    form.elements.namedItem("url").value =
+      channel.platform === "m3u8" ? "" : channel.original || channel.url || "";
+  }
+  updateChannelSourceFields();
   $("#channel-dialog").showModal();
 }
 $("#add-channel").onclick = () => openChannelForm(false);
@@ -374,6 +440,14 @@ async function checkAvailability(initial = false) {
   ).length;
   $("#status-note").textContent = `${online} channel(s) confirmed online`;
   renderTabs();
+  updateScreenChannelOptions(
+    channels
+      .filter((channel) => liveStates.get(channelKey(channel)) === false)
+      .map((channel) =>
+        channel.identityKey ||
+        channel.platform + ":" + (channel.details || channel.original || channel.url),
+      ),
+  );
 }
 function trackChatter(name, login, id) {
   // Ranking is deferred; do not collect counts when its UI is absent.

@@ -14,7 +14,10 @@ const $ = (s) => document.querySelector(s),
   room = "whitewing940920";
 let channels = [],
   screens = [0],
+  screenIncludeOffline = [false],
   selected = 0,
+  screenOfflineChannelKeys = new Set(),
+  editingPersonalChannel = -1,
   players = [],
   socket,
   retry,
@@ -99,12 +102,66 @@ function state(wrap, title, detail, c) {
   }
   wrap.append(box);
 }
+function screenChannelKey(channel) {
+  return (
+    channel.identityKey ||
+    channel.platform + ":" + (channel.details || channel.original || channel.url)
+  );
+}
+function screenPlayerKey(channel) {
+  return JSON.stringify([
+    channel.platform,
+    channel.details || channel.url || channel.original,
+  ]);
+}
+function populateScreenChannelSelect(select, slot) {
+  const currentIndex = screens[slot];
+  const available = channels
+    .map((channel, index) => ({ channel, index }))
+    .filter(
+      ({ channel }) =>
+        screenIncludeOffline[slot] ||
+        !screenOfflineChannelKeys.has(screenChannelKey(channel)),
+    );
+  const currentAvailable = available.some(({ index }) => index === currentIndex);
+  select.replaceChildren();
+  if (!currentAvailable) {
+    const placeholder = el(
+      "option",
+      "",
+      available.length
+        ? "Choose an available channel"
+        : "No channels are currently available",
+    );
+    placeholder.value = "";
+    placeholder.disabled = true;
+    select.append(placeholder);
+  }
+  available.forEach(({ channel, index }) => {
+    const offline = screenOfflineChannelKeys.has(screenChannelKey(channel));
+    const option = el(
+      "option",
+      "",
+      channel.displayname + (offline ? " · Offline" : ""),
+    );
+    option.value = String(index);
+    select.append(option);
+  });
+  select.value = currentAvailable ? String(currentIndex) : "";
+}
+function updateScreenChannelOptions(offlineKeys) {
+  screenOfflineChannelKeys = new Set(offlineKeys);
+  document.querySelectorAll(".screen-channel-select").forEach((select) => {
+    const slot = Number(select.closest(".screen")?.dataset.slot);
+    populateScreenChannelSelect(select, slot);
+  });
+}
 function renderScreens() {
   const grid = $("#screens");
   // Keep unchanged players connected so adding a screen preserves mute and playback.
   [...grid.children].forEach((card, slot) => {
     const channel = channels[screens[slot]];
-    if (!channel || card.dataset.playerKey !== JSON.stringify(channel)) {
+    if (!channel || card.dataset.playerKey !== screenPlayerKey(channel)) {
       card.querySelector(".video-wrap")?._hls?.destroy();
       card.remove();
     }
@@ -115,12 +172,16 @@ function renderScreens() {
     if (existing) {
       existing.classList.toggle("selected", selected === slot);
       existing.querySelector(".remove-screen").hidden = screens.length === 1;
+      populateScreenChannelSelect(
+        existing.querySelector(".screen-channel-select"),
+        slot,
+      );
       return;
     }
     const c = channels[idx],
       card = el("article", "screen" + (selected === slot ? " selected" : ""));
     card.dataset.slot = String(slot);
-    card.dataset.playerKey = JSON.stringify(c);
+    card.dataset.playerKey = screenPlayerKey(c);
     card.tabIndex = 0;
     card.setAttribute(
       "aria-label",
@@ -140,12 +201,7 @@ function renderScreens() {
       "aria-label",
       "Select channel for screen " + (slot + 1),
     );
-    channels.forEach((channel, index) => {
-      const option = el("option", "", channel.displayname);
-      option.value = String(index);
-      channelSelect.append(option);
-    });
-    channelSelect.value = String(idx);
+    populateScreenChannelSelect(channelSelect, slot);
     channelSelect.onclick = (event) => event.stopPropagation();
     channelSelect.onchange = () => {
       userChoseChannel = true;
@@ -154,9 +210,30 @@ function renderScreens() {
       renderScreens();
       renderTabs();
     };
+    const channelFilter = el("select", "screen-channel-filter");
+    channelFilter.setAttribute(
+      "aria-label",
+      "Channel status filter",
+    );
+    channelFilter.title = "Choose whether to include offline channels";
+    for (const [value, label] of [
+      ["online", "Hide offline"],
+      ["all", "All"],
+    ]) {
+      const option = el("option", "", label);
+      option.value = value;
+      channelFilter.append(option);
+    }
+    channelFilter.value = screenIncludeOffline[slot] ? "all" : "online";
+    channelFilter.onclick = (event) => event.stopPropagation();
+    channelFilter.onchange = () => {
+      screenIncludeOffline[slot] = channelFilter.value === "all";
+      populateScreenChannelSelect(channelSelect, slot);
+    };
     bar.append(
       choose,
       channelSelect,
+      channelFilter,
       el(
         "span",
         "source",
@@ -183,6 +260,7 @@ function renderScreens() {
       close.onclick = (e) => {
         e.stopPropagation();
         screens.splice(slot, 1);
+        screenIncludeOffline.splice(slot, 1);
         selected = Math.min(selected, screens.length - 1);
         renderScreens();
         renderTabs();
@@ -327,6 +405,7 @@ $("#add-screen").onclick = () => {
   }
   userChoseChannel = true;
   screens.push(next);
+  screenIncludeOffline.push(false);
   selected = screens.length - 1;
   renderScreens();
   renderTabs();
@@ -429,7 +508,10 @@ $("#channel-form").onsubmit = async (e) => {
     !requestMode &&
     c.platform === "m3u8" &&
     channels.some(
-      (channel) => channel.platform === "m3u8" && channel.details === c.details,
+      (channel, index) =>
+        index !== editingPersonalChannel &&
+        channel.platform === "m3u8" &&
+        channel.details === c.details,
     )
   ) {
     toast("This Gosh channel is already listed.");
@@ -437,6 +519,25 @@ $("#channel-form").onsubmit = async (e) => {
   }
   if (requestMode) {
     await submitRequest(c);
+    return;
+  }
+  if (editingPersonalChannel >= 0) {
+    const previous = channels[editingPersonalChannel];
+    if (!previous?.custom) {
+      editingPersonalChannel = -1;
+      toast("This personal channel is no longer available to edit.");
+      return;
+    }
+    c.identityKey = previous.identityKey || screenChannelKey(previous);
+    channels[editingPersonalChannel] = c;
+    editingPersonalChannel = -1;
+    persist();
+    renderTabs();
+    renderScreens();
+    void checkAvailability(false);
+    $("#channel-dialog").close();
+    e.target.reset();
+    toast("Personal channel updated in this browser.");
     return;
   }
   channels.push(c);
@@ -641,8 +742,9 @@ async function start() {
     void checkAvailability(false);
     connect();
     await featuresReady;
-  } catch {
-    toast("Could not load channels. Please reload the page.");
+  } catch (error) {
+    console.error(error);
+    toast("Preview init error: " + String(error?.message || error));
   }
 }
 start();
