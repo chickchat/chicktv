@@ -328,6 +328,15 @@ aside #auth-note {
 .emote-text {
   white-space: pre-wrap;
 }
+.emote-text a.chat-link {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+.emote-text a.chat-link:hover {
+  color: #e0ffad;
+}
 .emote-panel {
   max-height: 440px;
   overflow: hidden;

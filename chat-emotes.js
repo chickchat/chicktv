@@ -88,8 +88,7 @@ function emoteParts(text) {
   if (plain) parts.push({ text: plain });
   return parts;
 }
-function renderEmoteText(text) {
-  const span = el('span', 'emote-text');
+function appendEmoteParts(span, text) {
   for (const part of emoteParts(text)) {
     if (part.text !== undefined) span.append(document.createTextNode(part.text));
     else {
@@ -104,6 +103,35 @@ function renderEmoteText(text) {
       span.append(image);
     }
   }
+}
+function renderEmoteText(text) {
+  const span = el('span', 'emote-text');
+  const urlPattern = /https?:\/\/[^\s<>"'`]+/giu;
+  let cursor = 0;
+  for (const match of text.matchAll(urlPattern)) {
+    let linkText = match[0];
+    while (/[.,!?;:，。！？；：、]+$/u.test(linkText)) linkText = linkText.slice(0, -1);
+    for (const [open, close] of [['(', ')'], ['[', ']'], ['{', '}'], ['（', '）'], ['【', '】']]) {
+      while (linkText.endsWith(close) &&
+        [...linkText].filter((char) => char === close).length > [...linkText].filter((char) => char === open).length)
+        linkText = linkText.slice(0, -close.length);
+    }
+    if (!linkText) continue;
+    let url;
+    try { url = new URL(linkText); } catch { continue; }
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password)
+      continue;
+
+    appendEmoteParts(span, text.slice(cursor, match.index));
+    const link = el('a', 'chat-link');
+    link.href = url.href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer nofollow ugc';
+    link.textContent = linkText;
+    span.append(link);
+    cursor = match.index + linkText.length;
+  }
+  appendEmoteParts(span, text.slice(cursor));
   return span;
 }
 function refreshEmoteMessages() {
