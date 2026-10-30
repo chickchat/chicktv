@@ -136,11 +136,11 @@ renderTabs = function () {
   originalRenderTabs();
   for (const [i, c] of channels.entries()) {
     const container = c.custom ? $("#personal-channels") : $("#channels");
-    const channelButtons = [...container.querySelectorAll(".channel")];
-    const peers = channels.filter((x) => !!x.custom === !!c.custom);
-    const b = channelButtons[peers.indexOf(c)];
-    if (!b) continue;
     const key = channelKey(c);
+    const b = [...container.querySelectorAll(".channel")].find(
+      (button) => button.dataset.channelKey === key,
+    );
+    if (!b) continue;
     const status = liveStates.get(key);
     b.title =
       status === true

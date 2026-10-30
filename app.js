@@ -79,6 +79,7 @@ function renderTabs() {
       "button",
       "channel" + (screens[selected] === i ? " active" : ""),
     );
+    b.dataset.channelKey = screenChannelKey(c);
     b.append(
       el(
         "span",
