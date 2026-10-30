@@ -53,6 +53,11 @@ a:focus-visible {
 .primary:hover {
   background: #d5ff9d;
 }
+#hide-offline[aria-pressed="true"] {
+  background: var(--green);
+  color: #1b2910;
+  border-color: var(--green);
+}
 header {
   height: 89px;
   display: flex;

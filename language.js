@@ -32,6 +32,7 @@
     'Choose an available channel': '選擇可用的頻道',
     'No channels are currently available': '目前沒有可用的頻道',
     'Hide offline': '隱藏離線',
+    'Show offline': '顯示離線',
     All: '全部',
     'Edit personal channel': '編輯自助頻道',
     'Save changes': '儲存變更',
@@ -142,6 +143,16 @@
       'aria-label',
       language === 'en' ? 'Switch to Traditional Chinese' : '切換至英文'
     );
+    const offlineFilter = document.querySelector('#hide-offline');
+    if (offlineFilter)
+      offlineFilter.title =
+        language === 'en'
+          ? offlineFilter.getAttribute('aria-pressed') === 'true'
+            ? 'Show offline channels'
+            : 'Hide offline channels'
+          : offlineFilter.getAttribute('aria-pressed') === 'true'
+            ? '顯示離線頻道'
+            : '隱藏離線頻道';
     document.querySelectorAll('.screen-channel-filter').forEach((filter) => {
       filter.setAttribute(
         'aria-label',

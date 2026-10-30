@@ -15,6 +15,7 @@ const $ = (s) => document.querySelector(s),
 let channels = [],
   screens = [0],
   screenIncludeOffline = [false],
+  hideOfflineChannels = true,
   selected = 0,
   screenOfflineChannelKeys = new Set(),
   editingPersonalChannel = -1,
@@ -30,6 +31,21 @@ const saved = (key, fallback) => {
     return fallback;
   }
 };
+hideOfflineChannels = saved("chick-hide-offline-channels", true);
+function updateOfflineFilterButton() {
+  const button = $("#hide-offline");
+  if (!button) return;
+  button.textContent = hideOfflineChannels ? "Show offline" : "Hide offline";
+  button.setAttribute("aria-pressed", String(hideOfflineChannels));
+  const traditionalChinese = document.documentElement.lang === "zh-Hant";
+  button.title = hideOfflineChannels
+    ? traditionalChinese
+      ? "顯示離線頻道"
+      : "Show offline channels"
+    : traditionalChinese
+      ? "隱藏離線頻道"
+      : "Hide offline channels";
+}
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
@@ -57,6 +73,8 @@ function renderTabs() {
   rail.replaceChildren();
   $("#personal-channels")?.replaceChildren();
   channels.forEach((c, i) => {
+    if (hideOfflineChannels && screenOfflineChannelKeys.has(screenChannelKey(c)))
+      return;
     const b = el(
       "button",
       "channel" + (screens[selected] === i ? " active" : ""),
@@ -77,7 +95,12 @@ function renderTabs() {
     };
     (c.custom ? $("#personal-channels") : rail).append(b);
   });
-  $("#channel-count").textContent = channels.length + " channels";
+  const visibleCount = channels.filter(
+    (channel) =>
+      !hideOfflineChannels ||
+      !screenOfflineChannelKeys.has(screenChannelKey(channel)),
+  ).length;
+  $("#channel-count").textContent = visibleCount + " channels";
 }
 function sourceUrl(c) {
   if (c.platform === "m3u8")
@@ -156,6 +179,18 @@ function updateScreenChannelOptions(offlineKeys) {
     populateScreenChannelSelect(select, slot);
   });
 }
+updateOfflineFilterButton();
+$("#hide-offline").onclick = () => {
+  hideOfflineChannels = !hideOfflineChannels;
+  try {
+    localStorage.setItem(
+      "chick-hide-offline-channels",
+      JSON.stringify(hideOfflineChannels),
+    );
+  } catch {}
+  updateOfflineFilterButton();
+  renderTabs();
+};
 function renderScreens() {
   const grid = $("#screens");
   // Keep unchanged players connected so adding a screen preserves mute and playback.
@@ -211,10 +246,7 @@ function renderScreens() {
       renderTabs();
     };
     const channelFilter = el("select", "screen-channel-filter");
-    channelFilter.setAttribute(
-      "aria-label",
-      "Channel status filter",
-    );
+    channelFilter.setAttribute("aria-label", "Channel status filter");
     channelFilter.title = "Choose whether to include offline channels";
     for (const [value, label] of [
       ["online", "Hide offline"],
