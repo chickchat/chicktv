@@ -38,6 +38,16 @@ function createXPost(id) {
   } else setTimeout(load, 0);
   return container;
 }
+function isDirectImageUrl(url) {
+  if (/\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)) return true;
+  return (
+    url.hostname.toLowerCase() === 'pbs.twimg.com' &&
+    /^\/media\/[^/]+\/?$/i.test(url.pathname) &&
+    ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(
+      (url.searchParams.get('format') || '').toLowerCase(),
+    )
+  );
+}
 function chatMedia(text) {
   let match = text.match(
     /\[(s|img|video|v|y)\]\s*(https:\/\/[^\s<>\[\]]+)(?:\s*\[(?:t|e)\]|\s*\[\/(?:s|img|video|v|y)\])?/i,
@@ -45,6 +55,19 @@ function chatMedia(text) {
   if (!match) {
     const plain = text.match(/https:\/\/(?:www\.|mobile\.)?(?:x\.com|twitter\.com)\/[^\s<>\[\]]+/i);
     if (plain) { match = [plain[0], 'post', plain[0]]; match.index = plain.index; }
+  }
+  if (!match) {
+    const urls = [...text.matchAll(/https:\/\/[^\s<>\[\]]+/gi)];
+    for (const candidate of urls) {
+      try {
+        const url = new URL(candidate[0]);
+        if (url.protocol === 'https:' && isDirectImageUrl(url)) {
+          match = [candidate[0], 'img', candidate[0]];
+          match.index = candidate.index;
+          break;
+        }
+      } catch {}
+    }
   }
   if (!match) return null;
   try {
@@ -69,7 +92,7 @@ function chatMedia(text) {
     const directVideo = /\.(mp4|webm)$/i.test(url.pathname);
     // A recognized video URL takes priority over another client's generic [s] tag.
     const kind = xPostId ? 'x-post' : embed || directVideo ? 'video'
-      : /^(s|img)$/i.test(match[1]) || /\.(png|jpe?g|gif|webp|avif)$/i.test(url.pathname)
+      : /^(s|img)$/i.test(match[1]) || isDirectImageUrl(url)
         ? 'image' : 'video';
     return {
       kind,

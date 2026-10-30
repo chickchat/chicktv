@@ -81,6 +81,14 @@ html[lang="zh-Hant"] #personal-channels:empty:after {
   gap: 2px;
   flex-shrink: 0;
 }
+.personal-actions[hidden] {
+  display: none;
+}
+.personal-actions-toggle {
+  min-width: 28px;
+  font-size: 18px;
+  line-height: 1;
+}
 .leaderboard {
   border-top: 1px solid var(--line);
   padding: 20px 0;

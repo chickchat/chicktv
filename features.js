@@ -165,6 +165,7 @@ renderTabs = function () {
       );
       const position = customIndices.indexOf(i);
       const actions = el("span", "personal-actions");
+      actions.hidden = true;
       const moveUp = el("button", "personal-action personal-move-up", "↑");
       moveUp.type = "button";
       moveUp.disabled = position === 0;
@@ -188,6 +189,7 @@ renderTabs = function () {
         "aria-label",
         "Remove personal channel " + c.displayname,
       );
+      remove.title = "Remove personal channel";
       remove.onclick = () => {
         channels.splice(i, 1);
         screens = screens.map((idx) =>
@@ -197,8 +199,33 @@ renderTabs = function () {
         renderTabs();
         renderScreens();
       };
-      actions.append(moveUp, moveDown, edit, remove, bell);
-      b.after(actions);
+      actions.append(moveUp, moveDown, edit, remove);
+      const actionsToggle = el(
+        "button",
+        "personal-action personal-actions-toggle",
+        "⋯",
+      );
+      actionsToggle.type = "button";
+      actionsToggle.setAttribute("aria-expanded", "false");
+      actionsToggle.setAttribute("aria-label", "Show personal channel actions");
+      actionsToggle.title = "Show personal channel actions";
+      actionsToggle.onclick = (event) => {
+        event.stopPropagation();
+        actions.hidden = !actions.hidden;
+        const expanded = !actions.hidden;
+        const isEnglish = document.documentElement.lang === "en";
+        const label = isEnglish
+          ? expanded
+            ? "Hide personal channel actions"
+            : "Show personal channel actions"
+          : expanded
+            ? "收起頻道管理按鈕"
+            : "展開頻道管理按鈕";
+        actionsToggle.setAttribute("aria-expanded", String(expanded));
+        actionsToggle.setAttribute("aria-label", label);
+        actionsToggle.title = label;
+      };
+      b.after(actionsToggle, actions, bell);
     } else {
       b.after(bell);
     }

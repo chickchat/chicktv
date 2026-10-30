@@ -162,6 +162,14 @@
       button.title = label;
       button.setAttribute('aria-label', label);
     });
+    document.querySelectorAll('.personal-actions-toggle').forEach((button) => {
+      const expanded = button.getAttribute('aria-expanded') === 'true';
+      const label = language === 'en'
+        ? expanded ? 'Hide personal channel actions' : 'Show personal channel actions'
+        : expanded ? '收起頻道管理按鈕' : '展開頻道管理按鈕';
+      button.title = label;
+      button.setAttribute('aria-label', label);
+    });
     observer.observe(document.body, {
       childList: true,
       subtree: true,
