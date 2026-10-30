@@ -146,12 +146,8 @@ function sendChat(event) {
     toast("Please wait for the previous message result.");
     return;
   }
-  // The [s]/[img] wrapper is for ChickTV's renderer. Twitch receives only the link;
-  // the local optimistic message keeps its original markup for our image display.
-  const twitchText = text.replace(
-    /\[(?:s|img)\]\s*(https:\/\/[^\s<>\[\]]+)(?:\s*\[(?:e|t)\]|\s*\[\/(?:s|img)\])?/gi,
-    (_wrapped, url) => url,
-  );
+  // Keep the original message markup so Twitch clients that support it can render media.
+  const twitchText = text;
   try {
     socket.send(
       (replyTarget ? "@reply-parent-msg-id=" + replyTarget.id + " " : "") +

@@ -184,7 +184,7 @@ renderTabs = function () {
       edit.setAttribute("aria-label", "Edit personal channel " + c.displayname);
       edit.title = "Edit personal channel";
       edit.onclick = () => openChannelForm(false, i);
-      const remove = el("button", "personal-action", "×");
+      const remove = el("button", "personal-action", "🗑");
       remove.setAttribute(
         "aria-label",
         "Remove personal channel " + c.displayname,
