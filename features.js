@@ -466,7 +466,6 @@ async function checkAvailability(initial = false) {
     (c) => liveStates.get(channelKey(c)) === true,
   ).length;
   $("#status-note").textContent = `${online} channel(s) confirmed online`;
-  renderTabs();
   updateScreenChannelOptions(
     channels
       .filter((channel) => liveStates.get(channelKey(channel)) === false)
@@ -475,6 +474,9 @@ async function checkAvailability(initial = false) {
         channel.platform + ":" + (channel.details || channel.original || channel.url),
       ),
   );
+  // Refresh channel buttons after replacing the offline-key set. Otherwise,
+  // channels that just came online can stay filtered out until another status check.
+  renderTabs();
 }
 function trackChatter(name, login, id) {
   // Ranking is deferred; do not collect counts when its UI is absent.
