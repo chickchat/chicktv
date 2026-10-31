@@ -405,6 +405,19 @@ function playVideo(url, wrap, slot, c) {
   if (/\.m3u8/i.test(url) && window.Hls?.isSupported()) {
     const h = new Hls();
     wrap._hls = h;
+    h.on(Hls.Events.MANIFEST_PARSED, () => {
+      // Select the best video variant, regardless of playlist ordering.
+      let best = -1;
+      for (let i = 0; i < h.levels.length; i++) {
+        const level = h.levels[i];
+        if (!level.height || !level.width) continue;
+        const previous = h.levels[best];
+        if (!previous || level.height > previous.height ||
+            (level.height === previous.height &&
+             (level.bitrate || 0) > (previous.bitrate || 0))) best = i;
+      }
+      if (best >= 0) h.currentLevel = best;
+    });
     h.loadSource(url);
     h.attachMedia(video);
     h.on(Hls.Events.ERROR, (_, d) => {
