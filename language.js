@@ -1,6 +1,8 @@
 // Translate interface text only; channel names and chat messages are user content.
 (() => {
   const labels = {
+    '📌 Pin screen': '📌 固定畫面',
+    '📌 Unpin screen': '📌 取消固定',
     'Chat history is unavailable in this browser. Messages may disappear after refresh.': '此瀏覽器無法儲存或讀取聊天紀錄，重新整理後訊息可能消失。',
     Provider: '平台',
     'Other providers (URL)': '其他平台（網址）',

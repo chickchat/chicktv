@@ -14,6 +14,7 @@ const $ = (s) => document.querySelector(s),
   room = "whitewing940920";
 let channels = [],
   screens = [0],
+  screenPinned = [false],
   screenIncludeOffline = [false],
   hideOfflineChannels = true,
   selected = 0,
@@ -192,6 +193,39 @@ $("#hide-offline").onclick = () => {
   updateOfflineFilterButton();
   renderTabs();
 };
+function savePinnedScreens() {
+  const pinned = screens.flatMap((index, slot) =>
+    screenPinned[slot] && channels[index]
+      ? [{ key: screenChannelKey(channels[index]), includeOffline: !!screenIncludeOffline[slot] }]
+      : [],
+  );
+  try {
+    localStorage.setItem("chick-pinned-screens", JSON.stringify(pinned));
+    return true;
+  } catch {
+    return false;
+  }
+}
+function restorePinnedScreens() {
+  const savedScreens = saved("chick-pinned-screens", []);
+  if (!Array.isArray(savedScreens)) return;
+  const restored = savedScreens.slice(0, 4).flatMap((entry) => {
+    if (!entry || typeof entry.key !== "string") return [];
+    const index = channels.findIndex((channel) => screenChannelKey(channel) === entry.key);
+    return index < 0 ? [] : [{ index, includeOffline: entry.includeOffline === true }];
+  });
+  if (!restored.length) return;
+  screens = restored.map((entry) => entry.index);
+  screenIncludeOffline = restored.map((entry) => entry.includeOffline);
+  screenPinned = restored.map(() => true);
+  selected = 0;
+  userChoseChannel = true; // Keep initial availability selection from replacing a pinned channel.
+}
+function updateScreenPin(button, slot) {
+  const pinned = !!screenPinned[slot];
+  button.textContent = pinned ? "📌 Unpin screen" : "📌 Pin screen";
+  button.setAttribute("aria-pressed", String(pinned));
+}
 function renderScreens() {
   const grid = $("#screens");
   // Keep unchanged players connected so adding a screen preserves mute and playback.
@@ -208,6 +242,7 @@ function renderScreens() {
     if (existing) {
       existing.classList.toggle("selected", selected === slot);
       existing.querySelector(".remove-screen").hidden = screens.length === 1;
+      updateScreenPin(existing.querySelector(".pin-screen"), slot);
       populateScreenChannelSelect(
         existing.querySelector(".screen-channel-select"),
         slot,
@@ -262,6 +297,7 @@ function renderScreens() {
     channelFilter.onchange = () => {
       screenIncludeOffline[slot] = channelFilter.value === "all";
       populateScreenChannelSelect(channelSelect, slot);
+      if (!savePinnedScreens()) toast("Browser storage is unavailable. Changes last for this visit.");
     };
     bar.append(
       choose,
@@ -277,6 +313,16 @@ function renderScreens() {
             : "LIVE PLAYER",
       ),
     );
+    const pin = el("button", "pin-screen");
+    pin.type = "button";
+    updateScreenPin(pin, slot);
+    pin.onclick = (event) => {
+      event.stopPropagation();
+      screenPinned[slot] = !screenPinned[slot];
+      updateScreenPin(pin, slot);
+      if (!savePinnedScreens()) toast("Browser storage is unavailable. Changes last for this visit.");
+    };
+    bar.append(pin);
     const full = el("button", "", "⛶");
     full.title = "Fullscreen";
     full.onclick = (e) => {
@@ -293,6 +339,7 @@ function renderScreens() {
       close.onclick = (e) => {
         e.stopPropagation();
         screens.splice(slot, 1);
+        screenPinned.splice(slot, 1);
         screenIncludeOffline.splice(slot, 1);
         selected = Math.min(selected, screens.length - 1);
         renderScreens();
@@ -308,6 +355,7 @@ function renderScreens() {
     grid.insertBefore(card, following || null);
     mountPlayer(c, wrap, slot);
   });
+  if (!savePinnedScreens()) toast("Browser storage is unavailable. Changes last for this visit.");
   $("#screen-count").textContent =
     screens.length + " screen" + (screens.length > 1 ? "s" : "");
 }
@@ -354,7 +402,7 @@ async function mountPlayer(c, wrap, slot) {
   let url = providerPlayerUrl(c.url);
   const kickUrl = new URL(url);
   if (kickUrl.hostname === "player.kick.com")
-    kickUrl.searchParams.set("muted", "true");
+    kickUrl.searchParams.set("muted", "false");
   if (kickUrl.hostname === "player.kick.com") url = kickUrl.href;
   if (c.platform === "twitch")
     url =
@@ -362,7 +410,7 @@ async function mountPlayer(c, wrap, slot) {
       encodeURIComponent(c.details) +
       "&parent=" +
       encodeURIComponent(location.hostname) +
-      "&muted=true";
+      "&muted=false";
   const frame = el("iframe");
   frame.title = c.displayname + " live player";
   frame.src = url;
@@ -370,8 +418,8 @@ async function mountPlayer(c, wrap, slot) {
   frame.allowFullscreen = true;
   frame.referrerPolicy = "strict-origin-when-cross-origin";
   if (kickUrl.hostname === "player.kick.com") {
-    let muted = true;
-    const sound = el("button", "kick-sound", "🔊 Enable sound");
+    let muted = false;
+    const sound = el("button", "kick-sound", "🔇 Mute sound");
     sound.type = "button";
     sound.title = "Changes sound by reloading this Kick player";
     sound.onclick = (event) => {
@@ -393,7 +441,7 @@ function playVideo(url, wrap, slot, c) {
   video.controls = true;
   video.autoplay = true;
   video.playsInline = true;
-  video.muted = true;
+  video.muted = false;
   wrap.append(video);
   video.onerror = () =>
     state(
@@ -439,19 +487,21 @@ $("#add-screen").onclick = () => {
     toast("You can watch up to four screens at once.");
     return;
   }
-  const next = nextScreenChannel(
+  let next = nextScreenChannel(
     channels,
     screens,
     screens[selected],
     (channel) => liveStates.get(channelKey(channel)) === true,
   );
-  if (next < 0) {
-    toast("No additional online channel is available.");
-    return;
+  if (!channels.length) return;
+  const usingAdjacentChannel = next < 0;
+  if (usingAdjacentChannel) {
+    next = ((screens[selected] ?? 0) + 1) % channels.length;
   }
   userChoseChannel = true;
   screens.push(next);
-  screenIncludeOffline.push(false);
+  screenPinned.push(false);
+  screenIncludeOffline.push(usingAdjacentChannel);
   selected = screens.length - 1;
   renderScreens();
   renderTabs();
@@ -780,6 +830,7 @@ async function start() {
   try {
     const res = await fetch("channels.json");
     channels = [...(await res.json()), ...saved("chick-channels", [])];
+    restorePinnedScreens();
     renderTabs();
     renderScreens();
     const featuresReady = initFeatures();
