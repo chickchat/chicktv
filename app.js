@@ -15,6 +15,7 @@ const $ = (s) => document.querySelector(s),
 let channels = [],
   screens = [0],
   screenPinned = [false],
+  screenPinnedKeys = [null],
   screenIncludeOffline = [false],
   hideOfflineChannels = true,
   selected = 0,
@@ -92,6 +93,7 @@ function renderTabs() {
     b.onclick = () => {
       userChoseChannel = true;
       screens[selected] = i;
+      screenPinnedKeys[selected] = screenPinned[selected] ? screenChannelKey(channels[i]) : null;
       renderScreens();
       renderTabs();
     };
@@ -193,10 +195,85 @@ $("#hide-offline").onclick = () => {
   updateOfflineFilterButton();
   renderTabs();
 };
+let pinnedFallbackEnabled = saved("chick-pin-fallback", false) === true;
+let pinnedFallbackPending = true;
+function updatePinnedFallbackButton() {
+  const button = $("#pin-fallback");
+  button.setAttribute("aria-pressed", String(pinnedFallbackEnabled));
+}
+updatePinnedFallbackButton();
+$("#pin-fallback").onclick = () => {
+  pinnedFallbackEnabled = !pinnedFallbackEnabled;
+  try { localStorage.setItem("chick-pin-fallback", JSON.stringify(pinnedFallbackEnabled)); }
+  catch { toast("Browser storage is unavailable. Changes last for this visit."); }
+  updatePinnedFallbackButton();
+  if (pinnedFallbackEnabled) applyPinnedFallback();
+  else {
+    screenPinnedKeys.forEach((key, slot) => {
+      const index = channels.findIndex(channel => screenChannelKey(channel) === key);
+      if (screenPinned[slot] && index >= 0) screens[slot] = index;
+    });
+    renderScreens();
+    renderTabs();
+  }
+  renderPinnedReplacements();
+};
+function applyPinnedFallback() {
+  if (!pinnedFallbackEnabled) return;
+  // Reserve every current screen before choosing alternatives, including later slots.
+  const used = new Set(screens.map(index => channels[index] && screenChannelKey(channels[index])));
+  let changed = false;
+  screens.forEach((current, slot) => {
+    if (!screenPinned[slot]) return;
+    const key = screenPinnedKeys[slot];
+    const original = channels.findIndex(channel => screenChannelKey(channel) === key);
+    if (original < 0 || screenChannelKey(channels[current]) !== key ||
+        liveStates.get(channelKey(channels[original])) !== false) return;
+    for (let offset = 1; offset < channels.length; offset++) {
+      const index = (original + offset) % channels.length;
+      const candidate = channels[index];
+      if (!used.has(screenChannelKey(candidate)) && liveStates.get(channelKey(candidate)) === true) {
+        screens[slot] = index;
+        used.add(screenChannelKey(candidate));
+        changed = true;
+        break;
+      }
+    }
+  });
+  if (changed) { renderScreens(); renderTabs(); }
+  renderPinnedReplacements();
+}
+function renderPinnedReplacements() {
+  const row = $("#pin-replacements");
+  row.replaceChildren();
+  if (!pinnedFallbackEnabled) { row.hidden = true; return; }
+  screens.forEach((index, slot) => {
+    if (!screenPinned[slot]) return;
+    const original = channels.find(channel => screenChannelKey(channel) === screenPinnedKeys[slot]);
+    const current = channels[index];
+    if (!original || !current || screenChannelKey(original) === screenChannelKey(current)) return;
+    const item = el("div", "pin-replacement");
+    item.append(el("span", "", "Screen"), document.createTextNode(" " + String(slot + 1).padStart(2, "0") + ": " + original.displayname + " → " + current.displayname + " "), el("span", "replacement-label", "Replacing offline pin"));
+    if (liveStates.get(channelKey(original)) === true) {
+      item.append(el("span", "", "Original channel is online"));
+      const back = el("button", "", "Switch back");
+      back.type = "button";
+      back.onclick = () => {
+        const target = channels.findIndex(channel => screenChannelKey(channel) === screenPinnedKeys[slot]);
+        if (target < 0) return;
+        screens[slot] = target;
+        renderScreens(); renderTabs();
+      };
+      item.append(back);
+    }
+    row.append(item);
+  });
+  row.hidden = !row.children.length;
+}
 function savePinnedScreens() {
   const pinned = screens.flatMap((index, slot) =>
     screenPinned[slot] && channels[index]
-      ? [{ key: screenChannelKey(channels[index]), includeOffline: !!screenIncludeOffline[slot] }]
+      ? [{ key: screenPinnedKeys[slot] || screenChannelKey(channels[index]), includeOffline: !!screenIncludeOffline[slot] }]
       : [],
   );
   try {
@@ -218,6 +295,7 @@ function restorePinnedScreens() {
   screens = restored.map((entry) => entry.index);
   screenIncludeOffline = restored.map((entry) => entry.includeOffline);
   screenPinned = restored.map(() => true);
+  screenPinnedKeys = restored.map(entry => screenChannelKey(channels[entry.index]));
   selected = 0;
   userChoseChannel = true; // Keep initial availability selection from replacing a pinned channel.
 }
@@ -278,6 +356,7 @@ function renderScreens() {
       userChoseChannel = true;
       selected = slot;
       screens[slot] = Number(channelSelect.value);
+      screenPinnedKeys[slot] = screenPinned[slot] ? screenChannelKey(channels[screens[slot]]) : null;
       renderScreens();
       renderTabs();
     };
@@ -319,6 +398,8 @@ function renderScreens() {
     pin.onclick = (event) => {
       event.stopPropagation();
       screenPinned[slot] = !screenPinned[slot];
+      screenPinnedKeys[slot] = screenPinned[slot] ? screenChannelKey(channels[screens[slot]]) : null;
+      renderPinnedReplacements();
       updateScreenPin(pin, slot);
       if (!savePinnedScreens()) toast("Browser storage is unavailable. Changes last for this visit.");
     };
@@ -340,6 +421,7 @@ function renderScreens() {
         e.stopPropagation();
         screens.splice(slot, 1);
         screenPinned.splice(slot, 1);
+        screenPinnedKeys.splice(slot, 1);
         screenIncludeOffline.splice(slot, 1);
         selected = Math.min(selected, screens.length - 1);
         renderScreens();
@@ -356,6 +438,7 @@ function renderScreens() {
     mountPlayer(c, wrap, slot);
   });
   if (!savePinnedScreens()) toast("Browser storage is unavailable. Changes last for this visit.");
+  renderPinnedReplacements();
   $("#screen-count").textContent =
     screens.length + " screen" + (screens.length > 1 ? "s" : "");
 }
@@ -501,6 +584,7 @@ $("#add-screen").onclick = () => {
   userChoseChannel = true;
   screens.push(next);
   screenPinned.push(false);
+  screenPinnedKeys.push(null);
   screenIncludeOffline.push(usingAdjacentChannel);
   selected = screens.length - 1;
   renderScreens();

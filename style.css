@@ -631,3 +631,10 @@ body.theater aside {
     height: 550px;
   }
 }
+
+#pin-fallback[aria-pressed="true"] { background: var(--green); color: #1b2910; border-color: var(--green); }
+#pin-replacements:not([hidden]) { display: flex; align-items: center; gap: 12px; overflow-x: auto; padding: 0 20px 10px; }
+.pin-replacement { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex: 0 0 auto; font-size: 13px; }
+.pin-replacement + .pin-replacement { border-left: 1px solid #45503b; padding-left: 12px; }
+.pin-replacement button { padding: 4px 10px; font-size: 12px; }
+.replacement-label { color: #e4c575; }

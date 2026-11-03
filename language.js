@@ -1,6 +1,13 @@
 // Translate interface text only; channel names and chat messages are user content.
 (() => {
   const labels = {
+    'Screen': '畫面',
+    'Auto-replace offline pins': '固定畫面自動替補',
+    'Replace offline pinned channels with online channels; keep the original pins.': '固定頻道離線時，以其他線上頻道替補；保留原本的固定設定。',
+    'Replacing offline pin': '替補中',
+    'Original channel is online': '原頻道已上線',
+    'Switch back': '切回原頻道',
+
     '📌 Pin screen': '📌 固定畫面',
     '📌 Unpin screen': '📌 取消固定',
     'Chat history is unavailable in this browser. Messages may disappear after refresh.': '此瀏覽器無法儲存或讀取聊天紀錄，重新整理後訊息可能消失。',

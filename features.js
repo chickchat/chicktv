@@ -474,6 +474,11 @@ async function checkAvailability(initial = false) {
         channel.platform + ":" + (channel.details || channel.original || channel.url),
       ),
   );
+  if (pinnedFallbackPending) {
+    pinnedFallbackPending = false;
+    applyPinnedFallback();
+  }
+  renderPinnedReplacements();
   // Refresh channel buttons after replacing the offline-key set. Otherwise,
   // channels that just came online can stay filtered out until another status check.
   renderTabs();
