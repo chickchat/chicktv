@@ -638,3 +638,8 @@ body.theater aside {
 .pin-replacement + .pin-replacement { border-left: 1px solid #45503b; padding-left: 12px; }
 .pin-replacement button { padding: 4px 10px; font-size: 12px; }
 .replacement-label { color: #e4c575; }
+
+.kick-sound { flex: 0 0 auto; padding: 8px 10px; white-space: nowrap; }
+
+.desktop-alert-option { display: flex; align-items: center; gap: 10px; margin-top: 16px; cursor: pointer; }
+.desktop-alert-option input { width: 18px; height: 18px; margin: 0; flex: 0 0 auto; accent-color: var(--green); }

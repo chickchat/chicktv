@@ -389,7 +389,11 @@ function renderScreens() {
           ? "GOSH"
           : c.platform === "twitch"
             ? "TWITCH"
-            : "LIVE PLAYER",
+            : new URL(providerPlayerUrl(c.url)).hostname === "player.kick.com"
+              ? "KICK"
+              : ["play.sooplive.com", "play.sooplive.co.kr"].includes(new URL(providerPlayerUrl(c.url)).hostname)
+                ? "SOOP"
+                : "",
       ),
     );
     const pin = el("button", "pin-screen");
@@ -502,15 +506,23 @@ async function mountPlayer(c, wrap, slot) {
   frame.referrerPolicy = "strict-origin-when-cross-origin";
   if (kickUrl.hostname === "player.kick.com") {
     let muted = false;
-    const sound = el("button", "kick-sound", "🔇 Mute sound");
+    const sound = el("button", "kick-sound", "🔇");
     sound.type = "button";
-    sound.title = "Changes sound by reloading this Kick player";
+    const updateSoundButton = () => {
+      sound.textContent = muted ? "🔊" : "🔇";
+      sound.dataset.requestedMuted = String(muted);
+      const chinese = document.documentElement.lang === "zh-Hant";
+      const label = chinese ? (muted ? "開啟聲音" : "靜音") : (muted ? "Enable sound" : "Mute sound");
+      sound.setAttribute("aria-label", label);
+      sound.title = label + (chinese ? "（會重新載入此 Kick 播放器）" : " (reloads this Kick player)");
+    };
+    updateSoundButton();
     sound.onclick = (event) => {
       event.stopPropagation();
       muted = !muted;
       kickUrl.searchParams.set("muted", String(muted));
       frame.src = kickUrl.href;
-      sound.textContent = muted ? "🔊 Enable sound" : "🔇 Mute sound";
+      updateSoundButton();
     };
     wrap.closest(".screen").querySelector(".screen-bar").append(sound);
   }

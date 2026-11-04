@@ -10,6 +10,46 @@ function communityEndpoint(path) {
 }
 const subscriptions = new Set(saved("chick-alerts", []));
 const alertMessages = saved("chick-alert-messages", {});
+const savedDesktopAlerts = saved("chick-desktop-alerts", []);
+const desktopAlerts = new Set(Array.isArray(savedDesktopAlerts) ? savedDesktopAlerts.filter(key => typeof key === "string") : []);
+function desktopAlertsSupported() {
+  return window.isSecureContext && "Notification" in window;
+}
+function updateDesktopAlertNote() {
+  const checkbox = $("#alert-desktop");
+  checkbox.disabled = !desktopAlertsSupported();
+  $("#alert-desktop-note").textContent = !desktopAlertsSupported()
+    ? "Desktop notifications are unavailable in this browser."
+    : Notification.permission === "denied"
+      ? "Notifications are blocked. Allow them in your browser's site settings."
+      : "Keep ChickTV open. Sleeping tabs or system settings may delay notifications.";
+}
+$("#alert-desktop").onchange = async () => {
+  const checkbox = $("#alert-desktop");
+  if (!checkbox.checked || !desktopAlertsSupported()) return;
+  if (Notification.permission === "default") {
+    checkbox.disabled = true;
+    try { await Notification.requestPermission(); }
+    catch { /* Keep in-page alerts available when permission requests fail. */ }
+  }
+  checkbox.checked = Notification.permission === "granted";
+  updateDesktopAlertNote();
+};
+function showDesktopOnlineAlert(channel) {
+  const key = channelKey(channel);
+  if (!desktopAlerts.has(key) || !desktopAlertsSupported() || Notification.permission !== "granted") return;
+  try {
+    const notification = new Notification("ChickTV · " + channel.displayname, {
+      body: alertText(channel),
+      icon: new URL("assets/chicktv-chick-three-quarter.png", location.href).href,
+      tag: "chicktv-online:" + key,
+    });
+    notification.onclick = () => { window.focus(); notification.close(); };
+  } catch {
+    // Some browsers require service-worker notifications; the in-page alert remains available.
+  }
+}
+
 const notifiedOnline = new Set(saved("chick-alerted-online", []));
 const onlineAlertQueue = [];
 let onlineAlertWindow;
@@ -57,6 +97,8 @@ function openAlertSettings(channel) {
   editingAlert = channel;
   $("#alert-title").textContent = channel.displayname + " · 上線通知";
   $("#alert-message").value = alertText(channel);
+  $("#alert-desktop").checked = desktopAlerts.has(channelKey(channel));
+  updateDesktopAlertNote();
   $("#alert-disable").hidden = !subscriptions.has(channelKey(channel));
   $("#alert-support").textContent =
     typeof statusProvider === "function" &&
@@ -84,6 +126,8 @@ function saveAlertSettings(event) {
   const key = channelKey(editingAlert);
   alertMessages[key] = text;
   subscriptions.add(key);
+  if ($("#alert-desktop").checked && desktopAlertsSupported() && Notification.permission === "granted") desktopAlerts.add(key);
+  else desktopAlerts.delete(key);
   storeAlerts();
   $("#alert-dialog").close();
   renderTabs();
@@ -93,6 +137,7 @@ function saveAlertSettings(event) {
 }
 function storeAlerts() {
   try {
+    localStorage.setItem("chick-desktop-alerts", JSON.stringify([...desktopAlerts]));
     localStorage.setItem("chick-alerts", JSON.stringify([...subscriptions]));
     localStorage.setItem("chick-alert-messages", JSON.stringify(alertMessages));
   } catch {
@@ -110,6 +155,7 @@ function recordAvailability(channel, live, initial) {
     notifiedOnline.add(key);
     saveNotifiedOnline();
     showOnlineAlert(alertText(channel));
+    showDesktopOnlineAlert(channel);
   }
 }
 const liveStates = new Map(),
@@ -550,6 +596,7 @@ async function initFeatures() {
   $("#alert-disable").onclick = () => {
     if (editingAlert) {
       subscriptions.delete(channelKey(editingAlert));
+      desktopAlerts.delete(channelKey(editingAlert));
       notifiedOnline.delete(channelKey(editingAlert));
       saveNotifiedOnline();
       storeAlerts();

@@ -1,6 +1,11 @@
 // Translate interface text only; channel names and chat messages are user content.
 (() => {
   const labels = {
+    'Receive desktop notifications': '接收桌面通知',
+    'Keep ChickTV open. Sleeping tabs or system settings may delay notifications.': '需保持 ChickTV 開啟；分頁休眠或系統設定可能延遲通知。',
+    'Desktop notifications are unavailable in this browser.': '此瀏覽器不支援桌面通知。',
+    "Notifications are blocked. Allow them in your browser's site settings.": '通知已被封鎖，請在瀏覽器的網站設定中允許通知。',
+
     'Screen': '畫面',
     'Auto-replace offline pins': '固定畫面自動替補',
     'Replace offline pinned channels with online channels; keep the original pins.': '固定頻道離線時，以其他線上頻道替補；保留原本的固定設定。',
@@ -162,6 +167,12 @@
           : offlineFilter.getAttribute('aria-pressed') === 'true'
             ? '顯示離線頻道'
             : '隱藏離線頻道';
+    document.querySelectorAll('.kick-sound').forEach((button) => {
+      const muted = button.dataset.requestedMuted === 'true';
+      const label = language === 'en' ? (muted ? 'Enable sound' : 'Mute sound') : (muted ? '開啟聲音' : '靜音');
+      button.setAttribute('aria-label', label);
+      button.title = label + (language === 'en' ? ' (reloads this Kick player)' : '（會重新載入此 Kick 播放器）');
+    });
     document.querySelectorAll('.screen-channel-filter').forEach((filter) => {
       filter.setAttribute(
         'aria-label',
