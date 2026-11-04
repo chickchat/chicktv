@@ -519,7 +519,8 @@ async function mountPlayer(c, wrap, slot) {
       frame.src = kickUrl.href;
       updateSoundButton();
     };
-    wrap.closest(".screen").querySelector(".screen-bar").append(sound);
+    const bar = wrap.closest(".screen").querySelector(".screen-bar");
+    bar.insertBefore(sound, bar.querySelector(".remove-screen"));
   }
   wrap.append(frame);
 }
