@@ -51,8 +51,9 @@ html[lang="zh-Hant"] #personal-channels:empty:after {
 }
 .status-note {
   padding: 10px 30px;
-  font-size: 11px;
-  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
 }
 .bell {
   padding: 4px 6px;
@@ -649,3 +650,7 @@ aside.native-chat-active > #messages, aside.native-chat-active > .composer { dis
 .chat-head .avatar, .chat-head > a, #chat-view-toggle { flex-shrink: 0; }
 .chat-head > a { margin-left: 0; }
 #chat-view-toggle { font-size: 12px; padding: 5px; gap: 5px; }
+
+@media (max-width: 760px) {
+  #pin-replacements:not([hidden]) { padding-left: 16px; padding-right: 16px; }
+}

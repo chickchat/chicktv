@@ -511,7 +511,7 @@ async function checkAvailability(initial = false) {
   const online = channels.filter(
     (c) => liveStates.get(channelKey(c)) === true,
   ).length;
-  $("#status-note").textContent = `${online} channel(s) confirmed online`;
+  $("#status-note").textContent = `Online channels: ${online}`;
   updateScreenChannelOptions(
     channels
       .filter((channel) => liveStates.get(channelKey(channel)) === false)

@@ -110,8 +110,8 @@
     if (labels[key]) return text.replace(text.trim(), labels[key]);
     if (language !== 'en' && key.endsWith(' · Offline'))
       return text.replace(/ · Offline$/i, ' · 離線');
-    if (/^\d+ channel\(s\) confirmed online$/.test(key))
-      return key.replace(/ channel\(s\) confirmed online$/, ' 個頻道在線');
+    if (/^Online channels: \d+$/.test(key))
+      return key.replace('Online channels:', '在線頻道:');
     if (/^\d+ channels$/.test(key)) return key.replace(' channels', ' 個頻道');
     if (/^\d+ screens?$/.test(key)) return key.replace(/ screens?$/, ' 個畫面');
     if (/^SCREEN \d+$/.test(key)) return key.replace('SCREEN', '畫面');

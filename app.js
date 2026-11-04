@@ -99,12 +99,7 @@ function renderTabs() {
     };
     (c.custom ? $("#personal-channels") : rail).append(b);
   });
-  const visibleCount = channels.filter(
-    (channel) =>
-      !hideOfflineChannels ||
-      !screenOfflineChannelKeys.has(screenChannelKey(channel)),
-  ).length;
-  $("#channel-count").textContent = visibleCount + " channels";
+
 }
 function sourceUrl(c) {
   if (c.platform === "m3u8")

@@ -61,7 +61,7 @@ function chatMedia(text) {
     for (const candidate of urls) {
       try {
         const url = new URL(candidate[0]);
-        if (url.protocol === 'https:' && isDirectImageUrl(url)) {
+        if (url.protocol === 'https:' && (isDirectImageUrl(url) || /\.(mp4|webm)$/i.test(url.pathname))) {
           match = [candidate[0], 'img', candidate[0]];
           match.index = candidate.index;
           break;
@@ -101,11 +101,26 @@ function chatMedia(text) {
       start: match.index,
       end: match.index + match[0].length,
       directVideo,
+      videoHint: /^(video|v|y)$/i.test(match[1]),
+      tryVideoFallback: /^(s|img)$/i.test(match[1]) && !isDirectImageUrl(url),
       xPostId,
     };
   } catch {
     return null;
   }
+}
+function createChatVideo(url) {
+  const video = el("video");
+  video.controls = true;
+  video.preload = "metadata";
+  video.playsInline = true;
+  video.muted = true;
+  video.defaultMuted = true;
+  video.autoplay = true;
+  video.loop = true;
+  video.referrerPolicy = "no-referrer";
+  video.src = url;
+  return video;
 }
 function renderChatContent(text) {
   const media = chatMedia(text);
@@ -141,20 +156,8 @@ function renderChatContent(text) {
     player.src = media.embed;
     player.allow = "encrypted-media; fullscreen; picture-in-picture";
     player.allowFullscreen = true;
-  } else if (media.directVideo) {
-    player = el("video");
-    player.controls = true;
-    player.preload = "metadata";
-    player.playsInline = true;
-    // Request an early frame for the paused preview after learning the duration.
-    // Keep the original signed URL untouched and never start playback automatically.
-    player.addEventListener("loadedmetadata", () => {
-      if (player.paused && player.currentTime === 0 && Number.isFinite(player.duration) && player.duration > 0) {
-        try { player.currentTime = Math.min(0.01, player.duration / 2); } catch {}
-      }
-    }, { once: true });
-    player.referrerPolicy = "no-referrer";
-    player.src = media.url;
+  } else if (media.directVideo || media.videoHint) {
+    player = createChatVideo(media.url);
   }
   if (media.kind === "x-post") {
     content.append(player);
@@ -173,7 +176,18 @@ function renderChatContent(text) {
       content.append(link);
       player.onerror = () => {
         player.remove();
-        link.textContent = "Open image ↗";
+        if (media.tryVideoFallback) {
+          // A tagged extensionless resource may be a video rather than an image.
+          // Do not change the signed URL or fetch it through our backend.
+          const video = createChatVideo(media.url);
+          link.remove();
+          video.onerror = () => {
+            video.remove();
+            link.textContent = "Open video ↗";
+            content.append(link);
+          };
+          content.append(video);
+        } else link.textContent = "Open image ↗";
       };
     } else content.append(player);
   } else content.append(link);
@@ -197,7 +211,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const tools = el("div", "media-tools");
   for (const [kind, label] of [
     ["image", "Image"],
-    ["video", "Video"],
   ]) {
     const b = el("button", "", label);
     b.type = "button";
