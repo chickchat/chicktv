@@ -485,6 +485,10 @@ async function mountPlayer(c, wrap, slot) {
       encodeURIComponent(location.hostname) +
       "&muted=false";
   const frame = el("iframe");
+  if (["fanversecast.com", "www.fanversecast.com"].includes(new URL(url).hostname)) {
+    wrap.classList.add("fanverse-player-crop");
+    frame.scrolling = "no";
+  }
   frame.title = c.displayname + " live player";
   frame.src = url;
   frame.allow = "autoplay; fullscreen; picture-in-picture";

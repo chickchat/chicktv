@@ -251,6 +251,16 @@ video {
   height: 100%;
   min-height: 0;
 }
+/* Fanverse currently reserves 56px above its player and limits player height
+   to viewport minus 180px. Keep that viewport allowance outside our crop. */
+.video-wrap.fanverse-player-crop {
+  overflow: hidden;
+}
+.video-wrap.fanverse-player-crop > iframe {
+  top: -56px;
+  bottom: auto;
+  height: calc(100% + 180px);
+}
 .player-state {
   text-align: center;
   padding: 24px;
