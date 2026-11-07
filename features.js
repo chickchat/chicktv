@@ -486,6 +486,37 @@ async function runAvailabilityCheck(initial = false) {
       }),
     );
   }
+  async function checkFanverse() {
+    const fanverseChannels = channels.filter((channel) => {
+      try {
+        const url = new URL(channel.original || channel.url);
+        return url.protocol === "https:" &&
+          ["fanversecast.com", "www.fanversecast.com"].includes(url.hostname);
+      } catch { return false; }
+    });
+    if (!fanverseChannels.length) return;
+    let appearsLive = false;
+    try {
+      // This public feed has no documented offline flag. Its title is only a
+      // provisional live signal; missing data must not trigger offline fallback.
+      const response = await fetch("https://api.fanversecast.com/polling/v2.1/live-status.json", {
+        signal: AbortSignal.timeout(15000),
+        cache: "no-store",
+      });
+      if (!response.ok) throw Error();
+      const data = await response.json();
+      const player = new URL(data.playerUrl);
+      appearsLive = player.protocol === "https:" &&
+        [data.en?.liveTitle, data.ko?.liveTitle].some(
+          (title) => typeof title === "string" && /\bLIVE\b/i.test(title),
+        );
+    } catch { /* A failed check does not establish an offline transition. */ }
+    for (const channel of fanverseChannels) {
+      if (appearsLive) recordAvailability(channel, true, initial);
+      else liveStates.set(channelKey(channel), null);
+    }
+    renderTabs();
+  }
   async function checkOtherProviders() {
     if (typeof statusProvider !== "function") return;
     await Promise.all(
@@ -519,6 +550,7 @@ async function runAvailabilityCheck(initial = false) {
     sharedStatusReady,
     checkTwitch(),
     checkAngelThump(),
+    checkFanverse(),
     checkOtherProviders(),
   ]);
   if (initial && !userChoseChannel) {
