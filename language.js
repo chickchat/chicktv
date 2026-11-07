@@ -162,11 +162,11 @@
       offlineFilter.title =
         language === 'en'
           ? offlineFilter.getAttribute('aria-pressed') === 'true'
-            ? 'Show offline channels'
-            : 'Hide offline channels'
+            ? 'Show offline or unverified channels'
+            : 'Show only confirmed online channels'
           : offlineFilter.getAttribute('aria-pressed') === 'true'
-            ? '顯示離線頻道'
-            : '隱藏離線頻道';
+            ? '顯示離線或狀態未確認的頻道'
+            : '只顯示已確認在線的頻道';
     document.querySelectorAll('.kick-sound').forEach((button) => {
       const muted = button.dataset.requestedMuted === 'true';
       const label = language === 'en' ? (muted ? 'Enable sound' : 'Mute sound') : (muted ? '開啟聲音' : '靜音');

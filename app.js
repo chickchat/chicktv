@@ -20,6 +20,7 @@ let channels = [],
   hideOfflineChannels = true,
   selected = 0,
   screenOfflineChannelKeys = new Set(),
+  screenOnlineChannelKeys = new Set(),
   editingPersonalChannel = -1,
   players = [],
   socket,
@@ -42,11 +43,11 @@ function updateOfflineFilterButton() {
   const traditionalChinese = document.documentElement.lang === "zh-Hant";
   button.title = hideOfflineChannels
     ? traditionalChinese
-      ? "顯示離線頻道"
-      : "Show offline channels"
+      ? "顯示離線或狀態未確認的頻道"
+      : "Show offline or unverified channels"
     : traditionalChinese
-      ? "隱藏離線頻道"
-      : "Hide offline channels";
+      ? "只顯示已確認在線的頻道"
+      : "Show only confirmed online channels";
 }
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -75,7 +76,7 @@ function renderTabs() {
   rail.replaceChildren();
   $("#personal-channels")?.replaceChildren();
   channels.forEach((c, i) => {
-    if (hideOfflineChannels && screenOfflineChannelKeys.has(screenChannelKey(c)))
+    if (hideOfflineChannels && !screenOnlineChannelKeys.has(screenChannelKey(c)))
       return;
     const b = el(
       "button",
@@ -403,15 +404,6 @@ function renderScreens() {
       if (!savePinnedScreens()) toast("Browser storage is unavailable. Changes last for this visit.");
     };
     bar.append(pin);
-    const full = el("button", "", "⛶");
-    full.title = "Fullscreen";
-    full.onclick = (e) => {
-      e.stopPropagation();
-      card
-        .requestFullscreen?.()
-        .catch(() => toast("Fullscreen is unavailable"));
-    };
-    bar.append(full);
     {
       const close = el("button", "remove-screen", "×");
       close.hidden = screens.length === 1;

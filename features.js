@@ -179,7 +179,12 @@ function movePersonalChannel(index, direction) {
 }
 const originalRenderTabs = renderTabs;
 renderTabs = function () {
+  // Unknown is not proof that a channel is online. Keep it available through
+  // Show offline, without allowing incomplete feeds to defeat the live-only rail.
+  const onlineChannels = channels.filter((channel) => liveStates.get(channelKey(channel)) === true);
+  screenOnlineChannelKeys = new Set(onlineChannels.map(screenChannelKey));
   originalRenderTabs();
+  $("#status-note").textContent = `Online channels: ${onlineChannels.length}`;
   for (const [i, c] of channels.entries()) {
     const container = c.custom ? $("#personal-channels") : $("#channels");
     const key = channelKey(c);
@@ -364,6 +369,19 @@ async function checkAvailability(initial = false) {
       renderTabs();
     }
   }
+  function sharedChannelStatus(entries, channel) {
+    const platform = String(channel.platform || "").toLowerCase();
+    const details = String(channel.details || "").toLowerCase();
+    const match = entries.find(
+      (entry) =>
+        String(entry.platform || "").toLowerCase() === platform &&
+        String(entry.details || "").toLowerCase() === details,
+    );
+    if (!match) return "offline";
+    return match.status === "live" || match.status === "offline"
+      ? match.status
+      : "unknown";
+  }
   async function checkSharedStatus() {
     const kickChannels = channels.filter(
       (c) => ["vl", "twitch"].includes(c.platform) && c.details,
@@ -380,9 +398,7 @@ async function checkAvailability(initial = false) {
         const data = await response.json();
         if (!Array.isArray(data.channels)) throw Error();
         for (const c of kickChannels) {
-          const status = data.channels.find(
-            (x) => x.platform === c.platform && x.details === c.details,
-          )?.status;
+          const status = sharedChannelStatus(data.channels, c);
           if (status === "live" || status === "offline")
             recordAvailability(c, status === "live", initial);
           else liveStates.set(channelKey(c), null);
