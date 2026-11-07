@@ -349,7 +349,13 @@ async function submitRequest(channel) {
     button.disabled = false;
   }
 }
-async function checkAvailability(initial = false) {
+let availabilityQueue = Promise.resolve();
+function checkAvailability(initial = false) {
+  const next = availabilityQueue.then(() => runAvailabilityCheck(initial));
+  availabilityQueue = next.catch(() => {});
+  return next;
+}
+async function runAvailabilityCheck(initial = false) {
   const candidates = channels.filter((c) => c.platform === "m3u8");
   let next = 0;
   async function runner() {
@@ -384,7 +390,7 @@ async function checkAvailability(initial = false) {
   }
   async function checkSharedStatus() {
     const kickChannels = channels.filter(
-      (c) => ["vl", "twitch"].includes(c.platform) && c.details,
+      (c) => c.platform === "vl" && c.details,
     );
     if (kickChannels.length) {
       try {
@@ -440,7 +446,7 @@ async function checkAvailability(initial = false) {
           for (const c of batch)
             recordAvailability(c, online.has(c.details.toLowerCase()), initial);
         } catch {
-          // Keep the fresh shared status if Twitch authentication or its API fails.
+          // Failed checks do not establish an offline transition or reset alerts.
         }
       }
     }
@@ -536,10 +542,7 @@ async function checkAvailability(initial = false) {
         channel.platform + ":" + (channel.details || channel.original || channel.url),
       ),
   );
-  if (pinnedFallbackPending) {
-    pinnedFallbackPending = false;
-    applyPinnedFallback();
-  }
+  applyPinnedFallback();
   renderPinnedReplacements();
   // Refresh channel buttons after replacing the offline-key set. Otherwise,
   // channels that just came online can stay filtered out until another status check.

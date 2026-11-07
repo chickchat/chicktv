@@ -192,7 +192,6 @@ $("#hide-offline").onclick = () => {
   renderTabs();
 };
 let pinnedFallbackEnabled = saved("chick-pin-fallback", false) === true;
-let pinnedFallbackPending = true;
 function updatePinnedFallbackButton() {
   const button = $("#pin-fallback");
   button.setAttribute("aria-pressed", String(pinnedFallbackEnabled));
