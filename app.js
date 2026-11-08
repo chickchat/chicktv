@@ -215,21 +215,31 @@ $("#pin-fallback").onclick = () => {
 };
 function applyPinnedFallback() {
   if (!pinnedFallbackEnabled) return;
-  // Reserve every current screen before choosing alternatives, including later slots.
-  const used = new Set(screens.map(index => channels[index] && screenChannelKey(channels[index])));
   let changed = false;
   screens.forEach((current, slot) => {
     if (!screenPinned[slot]) return;
     const key = screenPinnedKeys[slot];
     const original = channels.findIndex(channel => screenChannelKey(channel) === key);
-    if (original < 0 || screenChannelKey(channels[current]) !== key ||
-        liveStates.get(channelKey(channels[original])) !== false) return;
+    const currentChannel = channels[current];
+    if (original < 0 || !currentChannel) return;
+    const currentKey = screenChannelKey(currentChannel);
+    const originalStatus = liveStates.get(channelKey(channels[original]));
+    const currentStatus = liveStates.get(channelKey(currentChannel));
+    if (currentKey !== key && originalStatus === true && currentStatus === false) {
+      screens[slot] = original;
+      changed = true;
+      return;
+    }
+    // Keep a working replacement. Retry when it goes offline, even if the
+    // original pin's status is temporarily unknown.
+    if (currentKey === key ? originalStatus !== false : currentStatus !== false) return;
+    const used = new Set(screens.flatMap((index, otherSlot) =>
+      otherSlot !== slot && channels[index] ? [screenChannelKey(channels[index])] : []));
     for (let offset = 1; offset < channels.length; offset++) {
       const index = (original + offset) % channels.length;
       const candidate = channels[index];
       if (!used.has(screenChannelKey(candidate)) && liveStates.get(channelKey(candidate)) === true) {
         screens[slot] = index;
-        used.add(screenChannelKey(candidate));
         changed = true;
         break;
       }
@@ -248,7 +258,7 @@ function renderPinnedReplacements() {
     const current = channels[index];
     if (!original || !current || screenChannelKey(original) === screenChannelKey(current)) return;
     const item = el("div", "pin-replacement");
-    item.append(el("span", "", "Screen"), document.createTextNode(" " + String(slot + 1).padStart(2, "0") + ": " + original.displayname + " → " + current.displayname + " "), el("span", "replacement-label", "Replacing offline pin"));
+    item.append(el("span", "", "Screen"), document.createTextNode(" " + String(slot + 1).padStart(2, "0") + ": " + original.displayname + " → " + current.displayname + " "), el("span", "replacement-label", liveStates.get(channelKey(current)) === false ? "Replacement offline; waiting for an online channel" : "Replacing offline pin"));
     if (liveStates.get(channelKey(original)) === true) {
       item.append(el("span", "", "Original channel is online"));
       const back = el("button", "", "Switch back");

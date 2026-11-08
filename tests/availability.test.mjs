@@ -33,3 +33,25 @@ test('a pinned channel can be replaced when it goes offline after startup',()=>{
   states.set('original',false);context.applyPinnedFallback();assert.equal(context.screens[0],1);
   assert.equal(context.screenPinnedKeys[0],'original');
 });
+test('an offline replacement hands a pinned screen to the next online channel',()=>{
+  const channels=['original','first','second','third'].map(key=>({key}));
+  const states=new Map([['original',false],['first',true],['second',true],['third',true]]);
+  const context={channels,screens:[0],screenPinned:[true],screenPinnedKeys:['original'],pinnedFallbackEnabled:true,screenChannelKey:c=>c.key,channelKey:c=>c.key,liveStates:states,renderScreens(){},renderTabs(){},renderPinnedReplacements(){}};
+  vm.createContext(context);
+  vm.runInContext(app.slice(app.indexOf('function applyPinnedFallback('),app.indexOf('function renderPinnedReplacements(')),context);
+  context.applyPinnedFallback();assert.equal(context.screens[0],1);
+  states.set('first',false);context.applyPinnedFallback();assert.equal(context.screens[0],2);
+  states.set('second',false);context.applyPinnedFallback();assert.equal(context.screens[0],3);
+  assert.equal(context.screenPinnedKeys[0],'original');
+  states.set('third',false);context.applyPinnedFallback();assert.equal(context.screens[0],3,'keep the current screen when no online choice exists');
+  states.set('original',true);context.applyPinnedFallback();assert.equal(context.screens[0],0,'return to the original when it is the only online choice');
+});
+test('replacement handoff preserves another screen and a working replacement',()=>{
+  const channels=['original','first','second','other'].map(key=>({key}));
+  const states=new Map([['original',false],['first',false],['second',true],['other',true]]);
+  const context={channels,screens:[1,2],screenPinned:[true,false],screenPinnedKeys:['original',null],pinnedFallbackEnabled:true,screenChannelKey:c=>c.key,channelKey:c=>c.key,liveStates:states,renderScreens(){},renderTabs(){},renderPinnedReplacements(){}};
+  vm.createContext(context);
+  vm.runInContext(app.slice(app.indexOf('function applyPinnedFallback('),app.indexOf('function renderPinnedReplacements(')),context);
+  context.applyPinnedFallback();assert.deepEqual(context.screens,[3,2]);
+  states.set('original',true);context.applyPinnedFallback();assert.deepEqual(context.screens,[3,2],'do not interrupt a live replacement');
+});
