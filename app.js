@@ -749,14 +749,23 @@ $("#layout").onclick = () => {
     ? "▤ Stacked view"
     : "▦ Grid view";
 };
+function setTheaterMode(enabled, persist = true) {
+  document.body.classList.toggle("theater", enabled);
+  const button = $("#theater");
+  button.textContent = enabled ? "⛶ Exit theater" : "⛶ Theater mode";
+  button.setAttribute("aria-pressed", String(enabled));
+  if (!persist) return;
+  try {
+    localStorage.setItem("chick-theater-mode", JSON.stringify(enabled));
+  } catch {}
+}
+setTheaterMode(saved("chick-theater-mode", false), false);
 $("#theater").onclick = () => {
-  document.body.classList.toggle("theater");
-  $("#theater").textContent = document.body.classList.contains("theater")
-    ? "⛶ Exit theater"
-    : "⛶ Theater mode";
+  setTheaterMode(!document.body.classList.contains("theater"));
 };
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") document.body.classList.remove("theater");
+  if (e.key === "Escape" && document.body.classList.contains("theater"))
+    setTheaterMode(false);
 });
 function message(
   name,
