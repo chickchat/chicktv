@@ -83,11 +83,28 @@ function renderTabs() {
       "channel" + (screens[selected] === i ? " active" : ""),
     );
     b.dataset.channelKey = screenChannelKey(c);
+    const linkedProvider =
+      typeof statusProvider === "function"
+        ? statusProvider(c.original || c.url)?.provider
+        : null;
+    const provider = linkedProvider || c.platform;
+    const providerBadge =
+      provider === "twitch"
+        ? "▣"
+        : provider === "m3u8"
+          ? "G"
+          : provider === "soop"
+            ? "S"
+            : provider === "chzzk"
+              ? "C"
+              : provider === "youtube"
+                ? "Y"
+                : "K";
     b.append(
       el(
         "span",
-        "provider " + c.platform,
-        c.platform === "twitch" ? "▣" : c.platform === "m3u8" ? "G" : "K",
+        "provider " + provider,
+        providerBadge,
       ),
       document.createTextNode(c.displayname),
     );

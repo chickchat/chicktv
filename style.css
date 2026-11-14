@@ -151,6 +151,12 @@ nav {
 .provider.m3u8 {
   color: var(--green);
 }
+.provider.soop {
+  color: #68c9ff;
+}
+.provider.chzzk {
+  color: #00ffa3;
+}
 main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 350px;

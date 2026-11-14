@@ -11,3 +11,9 @@ test('CHZZK channel links normalize and participate in provider status checks', 
   assert.equal(context.statusProvider('https://chzzk.naver.com/live/invalid'), null);
   assert.equal(context.statusProvider('https://chzzk.naver.com.evil.test/live/' + id), null);
 });
+
+test('SOOP and CHZZK channel buttons use distinct provider badges', () => {
+  const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(app, /provider === "soop"[\s\S]*?\? "S"/);
+  assert.match(app, /provider === "chzzk"[\s\S]*?\? "C"/);
+});
