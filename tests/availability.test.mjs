@@ -91,3 +91,35 @@ test('persistent playback failure skips channels still reported live and keeps t
   assert.equal(context.screenPinnedKeys[0], 'original');
   assert.equal(liveStates.get('original'), true);
 });
+test('SOOP retry removes the failed iframe before mounting its replacement', async () => {
+  const failedFrame = { id: 'failed' };
+  const wrap = {
+    children: [failedFrame],
+    replacements: 0,
+    replaceChildren() { this.children = []; this.replacements++; },
+    append(node) { this.children.push(node); },
+    classList: { add() {} },
+  };
+  const channel = {
+    displayname: 'SOOP sample',
+    platform: 'embed',
+    url: 'https://play.sooplive.com/sample/embed'
+  };
+  const context = vm.createContext({
+    URL,
+    channels: [channel],
+    screens: [0],
+    el: (tag) => ({ tag }),
+    providerPlayerUrl: (url) => url,
+    statusProvider: () => ({ provider: 'soop', id: 'sample' }),
+  });
+  vm.runInContext(
+    app.slice(app.indexOf('async function mountPlayer('), app.indexOf('window.addEventListener("message"')),
+    context
+  );
+  await context.mountPlayer(channel, wrap, 0, true);
+  assert.equal(wrap.replacements, 1);
+  assert.equal(wrap.children.length, 1);
+  assert.notEqual(wrap.children[0], failedFrame);
+  assert.equal(wrap.children[0].src, channel.url);
+});

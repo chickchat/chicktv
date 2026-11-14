@@ -562,6 +562,11 @@ async function mountPlayer(c, wrap, slot, retry = false) {
     playVideo(c.url, wrap, c, failed);
     return;
   }
+  // A retry rebuilds an embedded player. Remove the failed iframe first so it
+  // cannot keep loading or playing underneath the replacement.
+  wrap.replaceChildren();
+  wrap._soopPlaybackFailure = null;
+  wrap._soopPlaybackRecovered = null;
   let url = providerPlayerUrl(c.url);
   const kickUrl = new URL(url);
   if (kickUrl.hostname === "player.kick.com")
