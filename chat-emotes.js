@@ -1,4 +1,5 @@
 const chatEmotes = new Map();
+const skLiveCatalogBase = 'https://sk-knower.com/sklive_api/read/';
 let emoteMode = 'sk',
   emotePanel,
   emoteGrid,
@@ -60,6 +61,78 @@ function registerEmotes(items, provider) {
       if (u.protocol === 'https:' && typeof item.code === 'string' && item.code.length < 100)
         chatEmotes.set(item.code, { ...item, provider });
     } catch {}
+}
+function validSkLivePackId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_]{1,50}$/.test(value);
+}
+function normalizedSkLiveStickers(data, pack) {
+  if (!validSkLivePackId(pack) || !Array.isArray(data?.[pack])) return [];
+  const unique = new Map();
+  for (const item of data[pack]) {
+    if (item?.showicon !== 'true' || typeof item.alt !== 'string' ||
+        !item.alt.length || item.alt.length >= 100 || typeof item.src !== 'string') continue;
+    try {
+      const url = new URL(item.src);
+      if (url.protocol === 'https:' && !url.username && !url.password)
+        unique.set(item.alt, { code: item.alt, url: url.href, pack });
+    } catch {}
+  }
+  return [...unique.values()];
+}
+async function fetchSkLiveJson(path, query) {
+  const url = new URL(path, skLiveCatalogBase);
+  url.search = new URLSearchParams(query);
+  const response = await fetch(url, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12000)
+  });
+  if (!response.ok) throw Error('SKLive catalog unavailable');
+  return response.json();
+}
+async function synchronizeSkLiveStickers(bundled) {
+  const metadata = await fetchSkLiveJson('skchat_set.php', { showset: 'public' });
+  const publicPacks = Array.isArray(metadata?.set)
+    ? metadata.set.filter((pack) => pack?.showset === 'true' && validSkLivePackId(pack.name)).slice(0, 50)
+    : [];
+  const results = await Promise.allSettled(
+    publicPacks.map(async (pack) => ({
+      metadata: pack,
+      stickers: normalizedSkLiveStickers(
+        await fetchSkLiveJson('skchat_icon.php', { set: pack.name }),
+        pack.name
+      )
+    }))
+  );
+  const synchronized = new Map();
+  for (const result of results)
+    if (result.status === 'fulfilled' && result.value.stickers.length)
+      synchronized.set(result.value.metadata.name, result.value);
+  if (!synchronized.size) return;
+
+  const merged = bundled.filter((item) => !synchronized.has(item.pack));
+  for (const { stickers } of synchronized.values()) merged.push(...stickers);
+  for (const [code, emote] of chatEmotes)
+    if (emote.provider === 'sk') chatEmotes.delete(code);
+  registerEmotes(merged, 'sk');
+
+  const existing = new Map(emotePacks.map((pack) => [pack.id, pack]));
+  for (const { metadata: pack, stickers } of synchronized.values()) {
+    const current = existing.get(pack.name);
+    const updated = {
+      id: pack.name,
+      label: current?.label || pack.dis || pack.name,
+      image: pack.image || stickers[0].url,
+      count: stickers.length
+    };
+    if (current) Object.assign(current, updated);
+    else {
+      emotePacks.push(updated);
+      existing.set(updated.id, updated);
+    }
+  }
+  refreshEmoteMessages();
+  drawEmoteTabs();
+  if (!emotePanel.hidden) drawEmotes();
 }
 function emoteParts(text) {
   const codes = [...chatEmotes.keys()].sort((a, b) => b.length - a.length);
@@ -276,7 +349,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const r = await fetch(new URL('sk-emotes.json', document.baseURI));
     if (r.ok) {
-      registerEmotes(await r.json(), 'sk');
+      const bundled = await r.json();
+      registerEmotes(bundled, 'sk');
       try {
         const packs = await fetch(new URL('sk-emote-packs.json', document.baseURI));
         if (packs.ok) emotePacks = await packs.json();
@@ -284,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       refreshEmoteMessages();
       drawEmoteTabs();
       if (!emotePanel.hidden) drawEmotes();
+      void synchronizeSkLiveStickers(bundled).catch(() => {});
     }
   } catch {}
 });
