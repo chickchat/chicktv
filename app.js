@@ -213,6 +213,13 @@ $("#pin-fallback").onclick = () => {
   }
   renderPinnedReplacements();
 };
+const playbackCooldowns = new Map();
+function playbackKey(pin, channel) {
+  return JSON.stringify([pin, screenChannelKey(channel)]);
+}
+function playbackCoolingDown(pin, channel) {
+  return (playbackCooldowns.get(playbackKey(pin, channel)) || 0) > Date.now();
+}
 function applyPinnedFallback() {
   if (!pinnedFallbackEnabled) return;
   let changed = false;
@@ -225,20 +232,21 @@ function applyPinnedFallback() {
     const currentKey = screenChannelKey(currentChannel);
     const originalStatus = liveStates.get(channelKey(channels[original]));
     const currentStatus = liveStates.get(channelKey(currentChannel));
-    if (currentKey !== key && originalStatus === true && currentStatus === false) {
+    const playbackFailed = playbackCoolingDown(key, currentChannel);
+    if (currentStatus !== false && !playbackFailed) return;
+    const used = new Set(screens.flatMap((index, otherSlot) =>
+      otherSlot !== slot && channels[index] ? [screenChannelKey(channels[index])] : []));
+    if (currentKey !== key && originalStatus === true && !used.has(key) &&
+        !playbackCoolingDown(key, channels[original])) {
       screens[slot] = original;
       changed = true;
       return;
     }
-    // Keep a working replacement. Retry when it goes offline, even if the
-    // original pin's status is temporarily unknown.
-    if (currentKey === key ? originalStatus !== false : currentStatus !== false) return;
-    const used = new Set(screens.flatMap((index, otherSlot) =>
-      otherSlot !== slot && channels[index] ? [screenChannelKey(channels[index])] : []));
     for (let offset = 1; offset < channels.length; offset++) {
       const index = (original + offset) % channels.length;
       const candidate = channels[index];
-      if (!used.has(screenChannelKey(candidate)) && liveStates.get(channelKey(candidate)) === true) {
+      if (!used.has(screenChannelKey(candidate)) && liveStates.get(channelKey(candidate)) === true &&
+          !playbackCoolingDown(key, candidate)) {
         screens[slot] = index;
         changed = true;
         break;
@@ -256,16 +264,22 @@ function renderPinnedReplacements() {
     if (!screenPinned[slot]) return;
     const original = channels.find(channel => screenChannelKey(channel) === screenPinnedKeys[slot]);
     const current = channels[index];
-    if (!original || !current || screenChannelKey(original) === screenChannelKey(current)) return;
+    if (!original || !current) return;
+    const failed = playbackCoolingDown(screenPinnedKeys[slot], current);
+    const isOriginal = screenChannelKey(original) === screenChannelKey(current);
+    if (isOriginal && !failed) return;
     const item = el("div", "pin-replacement");
-    item.append(el("span", "", "Screen"), document.createTextNode(" " + String(slot + 1).padStart(2, "0") + ": " + original.displayname + " → " + current.displayname + " "), el("span", "replacement-label", liveStates.get(channelKey(current)) === false ? "Replacement offline; waiting for an online channel" : "Replacing offline pin"));
-    if (liveStates.get(channelKey(original)) === true) {
+    const names = isOriginal ? original.displayname : original.displayname + " → " + current.displayname;
+    const label = failed ? "Playback failed; waiting for an available channel" : liveStates.get(channelKey(current)) === false ? "Replacement offline; waiting for an online channel" : "Replacing offline pin";
+    item.append(el("span", "", "Screen"), document.createTextNode(" " + String(slot + 1).padStart(2, "0") + ": " + names + " "), el("span", "replacement-label", label));
+    if (!isOriginal && liveStates.get(channelKey(original)) === true) {
       item.append(el("span", "", "Original channel is online"));
       const back = el("button", "", "Switch back");
       back.type = "button";
       back.onclick = () => {
         const target = channels.findIndex(channel => screenChannelKey(channel) === screenPinnedKeys[slot]);
         if (target < 0) return;
+        playbackCooldowns.delete(playbackKey(screenPinnedKeys[slot], channels[target]));
         screens[slot] = target;
         renderScreens(); renderTabs();
       };
@@ -449,11 +463,71 @@ function select(slot) {
     .forEach((c, i) => c.classList.toggle("selected", i === slot));
   renderTabs();
 }
-async function mountPlayer(c, wrap, slot) {
+const playbackRetryDelay = 15000;
+const playbackCooldown = 180000;
+function pinnedPlaybackKey(c, wrap, slot) {
+  if (!wrap.isConnected || !pinnedFallbackEnabled || !screenPinned[slot] ||
+      !channels[screens[slot]] || screenChannelKey(channels[screens[slot]]) !== screenChannelKey(c)) return null;
+  return screenPinnedKeys[slot];
+}
+async function recheckPlaybackStatus(c) {
+  const source = statusProvider(c.original || c.url);
+  if (c.platform !== "m3u8" && source?.provider !== "soop") return;
+  const endpoint = new URL(goshEndpoint(c.details || "status"));
+  if (c.platform !== "m3u8") {
+    endpoint.pathname = "/api/provider-status";
+    endpoint.search = new URLSearchParams(source);
+  }
+  const response = await fetch(endpoint, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+  if (!response.ok) return;
+  const data = await response.json();
+  const live = c.platform === "m3u8" ? data.isLive :
+    data.status === "live" ? true : data.status === "offline" ? false : undefined;
+  if (typeof live === "boolean") recordAvailability(c, live, false);
+  return live;
+}
+async function handlePlaybackFailure(c, wrap, slot, retry, failureIsCurrent) {
+  const pin = pinnedPlaybackKey(c, wrap, slot);
+  if (!pin) return;
+  const stillPinned = () => failureIsCurrent() && pinnedPlaybackKey(c, wrap, slot) === pin;
+  const retryAt = Date.now() + playbackRetryDelay;
+  const live = await recheckPlaybackStatus(c).catch(() => undefined);
+  if (!stillPinned()) return;
+  if (live === false) {
+    applyPinnedFallback();
+    return;
+  }
+  if (!retry) {
+    setTimeout(() => {
+      if (stillPinned()) mountPlayer(c, wrap, slot, true);
+    }, Math.max(0, retryAt - Date.now()));
+    return;
+  }
+  const key = playbackKey(pin, c);
+  const expires = Date.now() + playbackCooldown;
+  playbackCooldowns.set(key, expires);
+  applyPinnedFallback();
+  setTimeout(() => {
+    if (playbackCooldowns.get(key) !== expires) return;
+    playbackCooldowns.delete(key);
+    if (stillPinned()) {
+      applyPinnedFallback();
+      if (stillPinned() && liveStates.get(channelKey(c)) !== false) mountPlayer(c, wrap, slot);
+    }
+  }, playbackCooldown);
+}
+async function mountPlayer(c, wrap, slot, retry = false) {
+  let failure;
+  const failed = () => {
+    if (failure) return;
+    const attempt = {};
+    failure = attempt;
+    void handlePlaybackFailure(c, wrap, slot, retry, () => failure === attempt);
+  };
   if (c.platform === "m3u8") {
     state(wrap, "Connecting to " + c.displayname, "Finding the live stream…");
     try {
-      const res = await fetch(goshEndpoint(c.details));
+      const res = await fetch(goshEndpoint(c.details), { cache: "no-store", signal: AbortSignal.timeout(15000) });
       if (!res.ok) throw Error();
       const data = await res.json();
       if (!wrap.isConnected) return;
@@ -464,22 +538,28 @@ async function mountPlayer(c, wrap, slot) {
           "This channel is currently offline.",
           c,
         );
+        if (data.isLive === false) {
+          recordAvailability(c, false, false);
+          applyPinnedFallback();
+        } else failed();
         return;
       }
-      playVideo(data.m3u8Url, wrap, slot, c);
+      playVideo(data.m3u8Url, wrap, c, failed);
     } catch {
-      if (wrap.isConnected)
+      if (wrap.isConnected) {
         state(
           wrap,
           "Stream unavailable",
           "The provider could not be reached. Try the original channel or select another.",
           c,
         );
+        failed();
+      }
     }
     return;
   }
   if (c.platform === "video") {
-    playVideo(c.url, wrap, slot, c);
+    playVideo(c.url, wrap, c, failed);
     return;
   }
   let url = providerPlayerUrl(c.url);
@@ -501,6 +581,15 @@ async function mountPlayer(c, wrap, slot) {
   }
   frame.title = c.displayname + " live player";
   frame.src = url;
+  if (statusProvider(c.original || c.url)?.provider === "soop") {
+    wrap._soopPlaybackFailure = failed;
+    wrap._soopPlaybackRecovered = () => {
+      failure = null;
+      retry = false;
+      const pin = pinnedPlaybackKey(c, wrap, slot);
+      if (pin && playbackCooldowns.delete(playbackKey(pin, c))) renderPinnedReplacements();
+    };
+  }
   frame.allow = "autoplay; fullscreen; picture-in-picture";
   frame.allowFullscreen = true;
   frame.referrerPolicy = "strict-origin-when-cross-origin";
@@ -529,7 +618,21 @@ async function mountPlayer(c, wrap, slot) {
   }
   wrap.append(frame);
 }
-function playVideo(url, wrap, slot, c) {
+window.addEventListener("message", (event) => {
+  const type = event.data?.type;
+  if (type !== "chicktv-soop-playback-failed" && type !== "chicktv-soop-playback-recovered") return;
+  for (const frame of document.querySelectorAll(".video-wrap iframe[data-soop-original-src]")) {
+    if (event.source !== frame.contentWindow) continue;
+    const player = new URL(frame.src);
+    if (player.protocol !== "chrome-extension:" || player.pathname !== "/player.html" ||
+        event.origin !== "chrome-extension://" + player.host) return;
+    const wrap = frame.closest(".video-wrap");
+    if (type === "chicktv-soop-playback-failed") wrap._soopPlaybackFailure?.();
+    else wrap._soopPlaybackRecovered?.();
+    return;
+  }
+});
+function playVideo(url, wrap, c, failed) {
   const u = new URL(url);
   if (u.protocol !== "https:") throw Error("HTTPS required");
   wrap.replaceChildren();
@@ -539,13 +642,20 @@ function playVideo(url, wrap, slot, c) {
   video.playsInline = true;
   video.muted = false;
   wrap.append(video);
-  video.onerror = () =>
+  const showFailure = (detail) => {
+    if (!video.isConnected) return;
+    video.onerror = null;
+    wrap._hls?.destroy();
+    wrap._hls = null;
     state(
       wrap,
       "Playback unavailable",
-      "The stream may be offline or blocked by its provider.",
+      detail,
       c,
     );
+    failed();
+  };
+  video.onerror = () => showFailure("The stream may be offline or blocked by its provider.");
   if (/\.m3u8/i.test(url) && window.Hls?.isSupported()) {
     const h = new Hls();
     wrap._hls = h;
@@ -565,16 +675,7 @@ function playVideo(url, wrap, slot, c) {
     h.loadSource(url);
     h.attachMedia(video);
     h.on(Hls.Events.ERROR, (_, d) => {
-      if (d.fatal) {
-        h.destroy();
-        if (wrap.isConnected)
-          state(
-            wrap,
-            "Playback unavailable",
-            "The stream could not be loaded. Try another channel.",
-            c,
-          );
-      }
+      if (d.fatal) showFailure("The stream could not be loaded. Try another channel.");
     });
   } else video.src = url;
 }
