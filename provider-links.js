@@ -2,6 +2,10 @@ function statusProvider(value) {
   try {
     const url = new URL(value);
     if (url.protocol !== 'https:') return null;
+    if (url.hostname === 'chzzk.naver.com' && !url.username && !url.password) {
+      const match = url.pathname.match(/^\/(?:live\/)?([a-f0-9]{32})\/?$/i);
+      return match ? { provider: 'chzzk', id: match[1].toLowerCase() } : null;
+    }
     if (['play.sooplive.com', 'play.sooplive.co.kr'].includes(url.hostname)) {
       const id = url.pathname.split('/')[1];
       return /^[a-z0-9_-]{1,80}$/i.test(id || '') ? { provider: 'soop', id } : null;
@@ -45,6 +49,8 @@ function nextScreenChannel(channels, screens, current, isOnline) {
 }
 function providerPlayerUrl(value) {
   const url = new URL(value);
+  const source = statusProvider(value);
+  if (source?.provider === 'chzzk') return 'https://chzzk.naver.com/live/' + source.id;
   if (
     url.protocol === 'https:' &&
     ['angelthump.com', 'www.angelthump.com'].includes(url.hostname) &&

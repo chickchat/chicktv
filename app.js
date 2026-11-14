@@ -412,7 +412,9 @@ function renderScreens() {
               ? "KICK"
               : ["play.sooplive.com", "play.sooplive.co.kr"].includes(new URL(providerPlayerUrl(c.url)).hostname)
                 ? "SOOP"
-                : "",
+                : statusProvider(c.original || c.url)?.provider === "chzzk"
+                  ? "CHZZK"
+                  : "",
       ),
     );
     const pin = el("button", "pin-screen");
@@ -472,7 +474,7 @@ function pinnedPlaybackKey(c, wrap, slot) {
 }
 async function recheckPlaybackStatus(c) {
   const source = statusProvider(c.original || c.url);
-  if (c.platform !== "m3u8" && source?.provider !== "soop") return;
+  if (c.platform !== "m3u8" && !["soop", "chzzk"].includes(source?.provider)) return;
   const endpoint = new URL(goshEndpoint(c.details || "status"));
   if (c.platform !== "m3u8") {
     endpoint.pathname = "/api/provider-status";
@@ -586,7 +588,7 @@ async function mountPlayer(c, wrap, slot, retry = false) {
   }
   frame.title = c.displayname + " live player";
   frame.src = url;
-  if (statusProvider(c.original || c.url)?.provider === "soop") {
+  if (["soop", "chzzk"].includes(statusProvider(c.original || c.url)?.provider)) {
     wrap._soopPlaybackFailure = failed;
     wrap._soopPlaybackRecovered = () => {
       failure = null;
@@ -625,14 +627,17 @@ async function mountPlayer(c, wrap, slot, retry = false) {
 }
 window.addEventListener("message", (event) => {
   const type = event.data?.type;
-  if (type !== "chicktv-soop-playback-failed" && type !== "chicktv-soop-playback-recovered") return;
-  for (const frame of document.querySelectorAll(".video-wrap iframe[data-soop-original-src]")) {
+  const signal = /^chicktv-(soop|chzzk)-playback-(failed|recovered)$/.exec(type);
+  if (!signal) return;
+  const attribute = signal[1] === "chzzk" ? "data-chzzk-original-src" : "data-soop-original-src";
+  for (const frame of document.querySelectorAll(".video-wrap iframe[" + attribute + "]")) {
     if (event.source !== frame.contentWindow) continue;
     const player = new URL(frame.src);
     if (player.protocol !== "chrome-extension:" || player.pathname !== "/player.html" ||
         event.origin !== "chrome-extension://" + player.host) return;
+    if ((player.searchParams.get("provider") || "soop") !== signal[1]) return;
     const wrap = frame.closest(".video-wrap");
-    if (type === "chicktv-soop-playback-failed") wrap._soopPlaybackFailure?.();
+    if (signal[2] === "failed") wrap._soopPlaybackFailure?.();
     else wrap._soopPlaybackRecovered?.();
     return;
   }
@@ -774,7 +779,12 @@ $("#channel-form").onsubmit = async (e) => {
     };
     if (!c.displayname) return;
     const host = u.hostname.replace(/^www\./, "");
-    if (host === "twitch.tv") {
+    if (host === "chzzk.naver.com") {
+      if (!statusProvider(u.href)) {
+        toast("Enter a CHZZK live channel URL.");
+        return;
+      }
+    } else if (host === "twitch.tv") {
       c.platform = "twitch";
       c.details = u.pathname.split("/")[1];
       if (!/^[a-z0-9_]+$/i.test(c.details || "")) {

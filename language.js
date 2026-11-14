@@ -12,6 +12,7 @@
     'Replacing offline pin': '替補中',
     'Replacement offline; waiting for an online channel': '替補頻道已離線，等待其他在線頻道',
     'Playback failed; waiting for an available channel': '播放失敗，等待可用頻道',
+    'Enter a CHZZK live channel URL.': '請輸入 CHZZK 直播頻道網址。',
     'Original channel is online': '原頻道已上線',
     'Switch back': '切回原頻道',
 
