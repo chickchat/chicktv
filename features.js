@@ -642,7 +642,7 @@ async function refreshCommunity() {
     communityRefreshBusy = false;
   }
 }
-async function initFeatures() {
+async function initFeatures(authReady) {
   $("#alert-form").onsubmit = saveAlertSettings;
   $("#alert-disable").onclick = () => {
     if (editingAlert) {
@@ -665,6 +665,7 @@ async function initFeatures() {
     }
   }
   renderTabs();
+  await authReady;
   await checkAvailability(true);
   setInterval(async () => {
     if (!document.hidden) {

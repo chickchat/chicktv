@@ -231,6 +231,7 @@ $("#pin-fallback").onclick = () => {
   renderPinnedReplacements();
 };
 const playbackCooldowns = new Map();
+let initialPinCheckPending = false;
 function playbackKey(pin, channel) {
   return JSON.stringify([pin, screenChannelKey(channel)]);
 }
@@ -238,7 +239,7 @@ function playbackCoolingDown(pin, channel) {
   return (playbackCooldowns.get(playbackKey(pin, channel)) || 0) > Date.now();
 }
 function applyPinnedFallback() {
-  if (!pinnedFallbackEnabled) return;
+  if (!pinnedFallbackEnabled || initialPinCheckPending) return;
   let changed = false;
   screens.forEach((current, slot) => {
     if (!screenPinned[slot]) return;
@@ -1069,15 +1070,18 @@ async function start() {
   try {
     const res = await fetch("channels.json");
     channels = [...(await res.json()), ...saved("chick-channels", [])];
+    initialPinCheckPending = true;
     restorePinnedScreens();
     renderTabs();
     renderScreens();
-    const featuresReady = initFeatures();
     restoreChatHistory();
-    await auth();
-    void checkAvailability(false);
-    connect();
-    await featuresReady;
+    const authReady = auth().then(() => connect());
+    try {
+      await initFeatures(authReady);
+    } finally {
+      initialPinCheckPending = false;
+      applyPinnedFallback();
+    }
   } catch (error) {
     console.error(error);
     toast("Preview init error: " + String(error?.message || error));

@@ -34,6 +34,21 @@ test('a pinned channel can be replaced when it goes offline after startup',()=>{
   states.set('original',false);context.applyPinnedFallback();assert.equal(context.screens[0],1);
   assert.equal(context.screenPinnedKeys[0],'original');
 });
+test('restored pins wait for nearby candidates, then take distinct replacements in screen order',()=>{
+  const channels=['乳宮','eunyoung','1004','口罩小姐','まいまい','nicolet','far'].map(key=>({key}));
+  const states=new Map([['乳宮',false],['eunyoung',false],['1004',false],['far',true]]);
+  const context={channels,screens:[1,0,2],screenPinned:[true,true,true],
+    screenPinnedKeys:['eunyoung','乳宮','1004'],pinnedFallbackEnabled:true,
+    screenChannelKey:c=>c.key,channelKey:c=>c.key,liveStates:states,
+    renderScreens(){},renderTabs(){},renderPinnedReplacements(){}};
+  vm.createContext(context);
+  vm.runInContext(fallbackCode+'\ninitialPinCheckPending = true;',context);
+  context.applyPinnedFallback();
+  assert.deepEqual(context.screens,[1,0,2]);
+  for(const key of ['口罩小姐','まいまい','nicolet']) states.set(key,true);
+  vm.runInContext('initialPinCheckPending = false; applyPinnedFallback();',context);
+  assert.deepEqual(context.screens,[3,4,5]);
+});
 test('an offline replacement hands a pinned screen to the next online channel',()=>{
   const channels=['original','first','second','third'].map(key=>({key}));
   const states=new Map([['original',false],['first',true],['second',true],['third',true]]);
