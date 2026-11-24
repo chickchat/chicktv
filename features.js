@@ -62,16 +62,28 @@ function publishNotificationObservation(channel, live, notify = false) {
     notify,
   }, location.origin);
 }
+function requestPendingOnlinePopups() {
+  if (!extensionStatusChecksAvailable || document.hidden) return;
+  window.postMessage({source: notificationMonitorPageSource, type: "take-popups"}, location.origin);
+}
 window.addEventListener("message", (event) => {
   if (event.source !== window || event.origin !== location.origin ||
       event.data?.source !== notificationMonitorExtensionSource) return;
   if (event.data.type === "ready" && event.data.statusChecks === true) {
     const firstConnection = !extensionStatusChecksAvailable;
     extensionStatusChecksAvailable = true;
+    requestPendingOnlinePopups();
     if (firstConnection && availabilityStarted && !document.hidden)
       void checkAvailability(true);
   }
   updateDesktopAlertNote();
+  if (extensionStatusChecksAvailable && event.data.type === "popups") {
+    for (const popup of Array.isArray(event.data.popups) ? event.data.popups : []) {
+      if (subscriptions.has(popup?.key) && typeof popup.message === "string")
+        showOnlineAlert(popup.message);
+    }
+    return;
+  }
   if (!extensionStatusChecksAvailable || event.data.type !== "state" ||
       !Array.isArray(event.data.states)) return;
   const monitored = new Set();
@@ -84,6 +96,7 @@ window.addEventListener("message", (event) => {
     else notifiedOnline.delete(state.key);
   }
   if (monitored.size) {
+    requestPendingOnlinePopups();
     saveNotifiedOnline();
     updateScreenChannelOptions(
       channels
@@ -109,7 +122,7 @@ function showOnlineAlert(text) {
   displayNextOnlineAlert();
 }
 function displayNextOnlineAlert() {
-  if (!onlineAlertWindow || onlineAlertWindow.open || !onlineAlertQueue.length)
+  if (document.hidden || !onlineAlertWindow || onlineAlertWindow.open || !onlineAlertQueue.length)
     return;
   onlineAlertWindow.querySelector(".online-alert-message").textContent =
     onlineAlertQueue.shift();
@@ -575,6 +588,9 @@ async function initFeatures(authReady) {
     }
   }, 120000);
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void checkAvailability(false);
+    if (document.hidden) return;
+    displayNextOnlineAlert();
+    requestPendingOnlinePopups();
+    void checkAvailability(false);
   });
 }
