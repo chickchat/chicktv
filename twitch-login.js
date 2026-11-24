@@ -7,6 +7,7 @@ function forgetTwitchSession() {
     localStorage.removeItem(twitchSessionKey);
     sessionStorage.removeItem(twitchSessionKey);
   } catch {}
+  if (typeof syncNotificationMonitor === 'function') syncNotificationMonitor();
 }
 function login() {
   const client = window.CHICKTV_CONFIG.twitchClientId || saved('twitch-client', '');
@@ -89,6 +90,7 @@ async function acceptTwitchToken(accessToken, client, restoring = false) {
     );
     sessionStorage.removeItem(twitchSessionKey);
   } catch {}
+  if (typeof syncNotificationMonitor === 'function') syncNotificationMonitor();
   if (typeof loadChatBadges === 'function') void loadChatBadges();
   if (typeof loadTwitchEmotes === 'function') void loadTwitchEmotes();
   $('#auth-note').textContent = 'Signed in as ' + user.login;

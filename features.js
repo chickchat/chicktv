@@ -12,47 +12,87 @@ const subscriptions = new Set(saved("chick-alerts", []));
 const alertMessages = saved("chick-alert-messages", {});
 const savedDesktopAlerts = saved("chick-desktop-alerts", []);
 const desktopAlerts = new Set(Array.isArray(savedDesktopAlerts) ? savedDesktopAlerts.filter(key => typeof key === "string") : []);
-function desktopAlertsSupported() {
-  return window.isSecureContext && "Notification" in window;
-}
+let extensionStatusChecksAvailable = false;
+let availabilityStarted = false;
 function updateDesktopAlertNote() {
-  const checkbox = $("#alert-desktop");
-  checkbox.disabled = !desktopAlertsSupported();
-  $("#alert-desktop-note").textContent = !desktopAlertsSupported()
-    ? "Desktop notifications are unavailable in this browser."
-    : Notification.permission === "denied"
-      ? "Notifications are blocked. Allow them in your browser's site settings."
-      : "Keep ChickTV open. Sleeping tabs or system settings may delay notifications.";
+  $("#pin-fallback").hidden = !extensionStatusChecksAvailable;
+  $("#alert-desktop").disabled = !extensionStatusChecksAvailable;
+  $("#alert-desktop-note").textContent = extensionStatusChecksAvailable
+    ? "Background notification extension connected."
+    : "Install or update the ChickTV notification extension to check channel status and receive alerts.";
 }
-$("#alert-desktop").onchange = async () => {
-  const checkbox = $("#alert-desktop");
-  if (!checkbox.checked || !desktopAlertsSupported()) return;
-  if (Notification.permission === "default") {
-    checkbox.disabled = true;
-    try { await Notification.requestPermission(); }
-    catch { /* Keep in-page alerts available when permission requests fail. */ }
-  }
-  checkbox.checked = Notification.permission === "granted";
-  updateDesktopAlertNote();
-};
-function showDesktopOnlineAlert(channel) {
-  const key = channelKey(channel);
-  if (!desktopAlerts.has(key) || !desktopAlertsSupported() || Notification.permission !== "granted") return;
-  try {
-    const notification = new Notification("ChickTV · " + channel.displayname, {
-      body: alertText(channel),
-      icon: new URL("assets/chicktv-chick-three-quarter.png", location.href).href,
-      tag: "chicktv-online:" + key,
-    });
-    notification.onclick = () => { window.focus(); notification.close(); };
-  } catch {
-    // Some browsers require service-worker notifications; the in-page alert remains available.
-  }
-}
+updateDesktopAlertNote();
 
 const notifiedOnline = new Set(saved("chick-alerted-online", []));
 const onlineAlertQueue = [];
 let onlineAlertWindow;
+const notificationMonitorPageSource = "chicktv-notification-page";
+const notificationMonitorExtensionSource = "chicktv-notification-extension";
+function notificationMonitorChannel(channel) {
+  const key = channelKey(channel);
+  return {
+    key,
+    name: String(channel.displayname || "Channel").slice(0, 80),
+    message: alertText(channel),
+    desktop: desktopAlerts.has(key),
+    platform: String(channel.platform || ""),
+    details: String(channel.details || ""),
+    url: String(channel.original || channel.url || ""),
+  };
+}
+function syncNotificationMonitor() {
+  window.postMessage({
+    source: notificationMonitorPageSource,
+    type: "sync",
+    channels: channels
+      .filter((channel) => subscriptions.has(channelKey(channel)))
+      .map(notificationMonitorChannel),
+    alerted: [...notifiedOnline],
+  }, location.origin);
+}
+function publishNotificationObservation(channel, live, notify = false) {
+  const key = channelKey(channel);
+  if (!subscriptions.has(key)) return;
+  window.postMessage({
+    source: notificationMonitorPageSource,
+    type: "observation",
+    key,
+    status: live ? "live" : "offline",
+    alerted: notifiedOnline.has(key),
+    notify,
+  }, location.origin);
+}
+window.addEventListener("message", (event) => {
+  if (event.source !== window || event.origin !== location.origin ||
+      event.data?.source !== notificationMonitorExtensionSource) return;
+  if (event.data.type === "ready" && event.data.statusChecks === true) {
+    const firstConnection = !extensionStatusChecksAvailable;
+    extensionStatusChecksAvailable = true;
+    if (firstConnection && availabilityStarted && !document.hidden)
+      void checkAvailability(true);
+  }
+  updateDesktopAlertNote();
+  if (!extensionStatusChecksAvailable || event.data.type !== "state" ||
+      !Array.isArray(event.data.states)) return;
+  const monitored = new Set();
+  for (const state of event.data.states) {
+    if (!state || typeof state.key !== "string") continue;
+    monitored.add(state.key);
+    if (state.status === "live" || state.status === "offline")
+      liveStates.set(state.key, state.status === "live");
+    if (state.alerted) notifiedOnline.add(state.key);
+    else notifiedOnline.delete(state.key);
+  }
+  if (monitored.size) {
+    saveNotifiedOnline();
+    updateScreenChannelOptions(
+      channels
+        .filter((channel) => liveStates.get(channelKey(channel)) === false)
+        .map(screenChannelKey),
+    );
+    renderTabs();
+  }
+});
 function showOnlineAlert(text) {
   onlineAlertQueue.push(text);
   if (!onlineAlertWindow) {
@@ -126,9 +166,12 @@ function saveAlertSettings(event) {
   const key = channelKey(editingAlert);
   alertMessages[key] = text;
   subscriptions.add(key);
-  if ($("#alert-desktop").checked && desktopAlertsSupported() && Notification.permission === "granted") desktopAlerts.add(key);
-  else desktopAlerts.delete(key);
+  if (extensionStatusChecksAvailable) {
+    if ($("#alert-desktop").checked) desktopAlerts.add(key);
+    else desktopAlerts.delete(key);
+  }
   storeAlerts();
+  syncNotificationMonitor();
   $("#alert-dialog").close();
   renderTabs();
   if (liveStates.get(key) === true)
@@ -147,6 +190,7 @@ function storeAlerts() {
 function recordAvailability(channel, live, initial) {
   const key = channelKey(channel);
   if (live !== true && live !== false) return;
+  let notifyThroughExtension = false;
   liveStates.set(key, live);
   if (!live) {
     notifiedOnline.delete(key);
@@ -155,8 +199,10 @@ function recordAvailability(channel, live, initial) {
     notifiedOnline.add(key);
     saveNotifiedOnline();
     showOnlineAlert(alertText(channel));
-    showDesktopOnlineAlert(channel);
+    notifyThroughExtension = desktopAlerts.has(key);
   }
+  if (typeof publishNotificationObservation === "function")
+    publishNotificationObservation(channel, live, notifyThroughExtension);
 }
 const liveStates = new Map(),
   chatCounts = new Map(),
@@ -182,9 +228,15 @@ renderTabs = function () {
   // Unknown is not proof that a channel is online. Keep it available through
   // Show offline, without allowing incomplete feeds to defeat the live-only rail.
   const onlineChannels = channels.filter((channel) => liveStates.get(channelKey(channel)) === true);
-  screenOnlineChannelKeys = new Set(onlineChannels.map(screenChannelKey));
+  screenOnlineChannelKeys = new Set(
+    (extensionStatusChecksAvailable ? onlineChannels : channels).map(screenChannelKey),
+  );
   originalRenderTabs();
-  $("#status-note").textContent = `Online channels: ${onlineChannels.length}`;
+  $("#pin-fallback").hidden = !extensionStatusChecksAvailable;
+  $("#hide-offline").disabled = !extensionStatusChecksAvailable;
+  $("#status-note").textContent = extensionStatusChecksAvailable
+    ? `Online channels: ${onlineChannels.length}`
+    : "Install or update the ChickTV notification extension to check channel status and receive alerts.";
   for (const [i, c] of channels.entries()) {
     const container = c.custom ? $("#personal-channels") : $("#channels");
     const key = channelKey(c);
@@ -202,14 +254,18 @@ renderTabs = function () {
     b.classList.toggle("channel-online", status === true);
     b.classList.toggle("channel-offline", status === false);
     b.setAttribute("aria-label", c.displayname + " · " + b.title);
-    const bell = el("button", "bell", subscriptions.has(key) ? "🔔" : "♧");
-    bell.setAttribute(
-      "aria-label",
-      "Configure online alert for " + c.displayname,
-    );
-    bell.setAttribute("aria-pressed", String(subscriptions.has(key)));
-    bell.title = alertText(c);
-    bell.onclick = () => openAlertSettings(c);
+    const bell = extensionStatusChecksAvailable
+      ? el("button", "bell", subscriptions.has(key) ? "🔔" : "♧")
+      : null;
+    if (bell) {
+      bell.setAttribute(
+        "aria-label",
+        "Configure online alert for " + c.displayname,
+      );
+      bell.setAttribute("aria-pressed", String(subscriptions.has(key)));
+      bell.title = alertText(c);
+      bell.onclick = () => openAlertSettings(c);
+    }
     if (c.custom) {
       const customIndices = channels.flatMap((channel, channelIndex) =>
         channel.custom ? [channelIndex] : [],
@@ -276,8 +332,8 @@ renderTabs = function () {
         actionsToggle.setAttribute("aria-label", label);
         actionsToggle.title = label;
       };
-      b.after(actionsToggle, actions, bell);
-    } else {
+      b.after(actionsToggle, actions, ...(bell ? [bell] : []));
+    } else if (bell) {
       b.after(bell);
     }
   }
@@ -355,204 +411,43 @@ function checkAvailability(initial = false) {
   availabilityQueue = next.catch(() => {});
   return next;
 }
+function requestExtensionStatuses(entries) {
+  if (!extensionStatusChecksAvailable || document.hidden) return Promise.resolve({});
+  return new Promise((resolve) => {
+    const id = crypto.randomUUID();
+    const finish = (statuses) => {
+      clearTimeout(timeout);
+      window.removeEventListener("message", receive);
+      resolve(statuses);
+    };
+    function receive(event) {
+      if (event.source === window && event.origin === location.origin &&
+          event.data?.source === notificationMonitorExtensionSource &&
+          event.data.type === "status-result" && event.data.id === id)
+        finish(event.data.statuses || {});
+    }
+    const timeout = setTimeout(() => finish({}), 32000);
+    window.addEventListener("message", receive);
+    window.postMessage({
+      source: notificationMonitorPageSource,
+      type: "check-status",
+      id,
+      channels: entries.map(notificationMonitorChannel),
+    }, location.origin);
+  });
+}
 async function runAvailabilityCheck(initial = false) {
-  const candidates = channels.filter((c) => c.platform === "m3u8");
-  let next = 0;
-  async function runner() {
-    while (next < candidates.length) {
-      const c = candidates[next++],
-        key = channelKey(c);
-      try {
-        const res = await fetch(goshEndpoint(c.details), {
-          signal: AbortSignal.timeout(20000),
-        });
-        if (!res.ok) throw Error();
-        const data = await res.json();
-        recordAvailability(c, !!data.isLive, initial);
-      } catch {
-        liveStates.set(key, null);
-      }
-      renderTabs();
-    }
+  if (!extensionStatusChecksAvailable || document.hidden) return;
+  const requested = [...channels];
+  const statuses = await requestExtensionStatuses(requested);
+  for (const channel of requested) {
+    if (!channels.includes(channel)) continue;
+    const key = channelKey(channel);
+    const status = statuses[key];
+    if (status === "live" || status === "offline")
+      recordAvailability(channel, status === "live", initial);
+    else liveStates.set(key, null);
   }
-  function sharedChannelStatus(entries, channel) {
-    const platform = String(channel.platform || "").toLowerCase();
-    const details = String(channel.details || "").toLowerCase();
-    const match = entries.find(
-      (entry) =>
-        String(entry.platform || "").toLowerCase() === platform &&
-        String(entry.details || "").toLowerCase() === details,
-    );
-    if (!match) return "offline";
-    return match.status === "live" || match.status === "offline"
-      ? match.status
-      : "unknown";
-  }
-  async function checkSharedStatus() {
-    const kickChannels = channels.filter(
-      (c) => c.platform === "vl" && c.details,
-    );
-    if (kickChannels.length) {
-      try {
-        const endpoint = new URL(goshEndpoint("status"));
-        endpoint.pathname = "/api/channel-status";
-        endpoint.search = "";
-        const response = await fetch(endpoint.href, {
-          signal: AbortSignal.timeout(20000),
-        });
-        if (!response.ok) throw Error();
-        const data = await response.json();
-        if (!Array.isArray(data.channels)) throw Error();
-        for (const c of kickChannels) {
-          const status = sharedChannelStatus(data.channels, c);
-          if (status === "live" || status === "offline")
-            recordAvailability(c, status === "live", initial);
-          else liveStates.set(channelKey(c), null);
-        }
-      } catch {
-        for (const c of kickChannels) liveStates.set(channelKey(c), null);
-      }
-    }
-    renderTabs();
-  }
-  const sharedStatusReady = checkSharedStatus();
-  async function checkTwitch() {
-    await sharedStatusReady;
-    const twitchChannels = channels.filter((c) => c.platform === "twitch");
-    if (typeof token !== "undefined" && token && twitchChannels.length) {
-      for (let start = 0; start < twitchChannels.length; start += 100) {
-        const batch = twitchChannels.slice(start, start + 100);
-        try {
-          const query = new URLSearchParams();
-          for (const c of batch) query.append("user_login", c.details);
-          const res = await fetch(
-            "https://api.twitch.tv/helix/streams?" + query,
-            {
-              headers: {
-                Authorization: "Bearer " + token,
-                "Client-Id":
-                  window.CHICKTV_CONFIG.twitchClientId ||
-                  saved("twitch-client", ""),
-              },
-              signal: AbortSignal.timeout(15000),
-            },
-          );
-          if (!res.ok) throw Error();
-          const body = await res.json();
-          if (!Array.isArray(body.data)) throw Error();
-          const online = new Set(
-            body.data.map((s) => s.user_login.toLowerCase()),
-          );
-          for (const c of batch)
-            recordAvailability(c, online.has(c.details.toLowerCase()), initial);
-        } catch {
-          // Failed checks do not establish an offline transition or reset alerts.
-        }
-      }
-    }
-    renderTabs();
-  }
-  async function checkAngelThump() {
-    if (typeof angelThumpChannel !== "function") return;
-    await Promise.all(
-      channels.map(async (channel) => {
-        const name = angelThumpChannel(channel.url);
-        if (!name) return;
-        try {
-          const response = await fetch(
-            "https://api.angelthump.com/v3/streams?username=" +
-              encodeURIComponent(name),
-            {
-              signal: AbortSignal.timeout(15000),
-              cache: "no-store",
-            },
-          );
-          if (!response.ok) throw Error();
-          const streams = await response.json();
-          if (!Array.isArray(streams)) throw Error();
-          recordAvailability(
-            channel,
-            streams.some(
-              (stream) =>
-                stream.type === "live" &&
-                stream.user?.username?.toLowerCase() === name,
-            ),
-            initial,
-          );
-        } catch {
-          liveStates.set(channelKey(channel), null);
-        }
-        renderTabs();
-      }),
-    );
-  }
-  async function checkFanverse() {
-    const fanverseChannels = channels.filter((channel) => {
-      try {
-        const url = new URL(channel.original || channel.url);
-        return url.protocol === "https:" &&
-          ["fanversecast.com", "www.fanversecast.com"].includes(url.hostname);
-      } catch { return false; }
-    });
-    if (!fanverseChannels.length) return;
-    let appearsLive = false;
-    try {
-      // This public feed has no documented offline flag. Its title is only a
-      // provisional live signal; missing data must not trigger offline fallback.
-      const response = await fetch("https://api.fanversecast.com/polling/v2.1/live-status.json", {
-        signal: AbortSignal.timeout(15000),
-        cache: "no-store",
-      });
-      if (!response.ok) throw Error();
-      const data = await response.json();
-      const player = new URL(data.playerUrl);
-      appearsLive = player.protocol === "https:" &&
-        [data.en?.liveTitle, data.ko?.liveTitle].some(
-          (title) => typeof title === "string" && /\bLIVE\b/i.test(title),
-        );
-    } catch { /* A failed check does not establish an offline transition. */ }
-    for (const channel of fanverseChannels) {
-      if (appearsLive) recordAvailability(channel, true, initial);
-      else liveStates.set(channelKey(channel), null);
-    }
-    renderTabs();
-  }
-  async function checkOtherProviders() {
-    if (typeof statusProvider !== "function") return;
-    await Promise.all(
-      channels.map(async (channel) => {
-        const source = statusProvider(channel.original || channel.url);
-        if (!source || source.provider === "youtube") return;
-        try {
-          const endpoint = new URL(goshEndpoint("status"));
-          endpoint.pathname = "/api/provider-status";
-          endpoint.search = new URLSearchParams(source);
-          const response = await fetch(endpoint.href, {
-            signal: AbortSignal.timeout(15000),
-            cache: "no-store",
-          });
-          if (!response.ok) throw Error();
-          const data = await response.json();
-          if (["live", "offline"].includes(data.status))
-            recordAvailability(channel, data.status === "live", initial);
-          else liveStates.set(channelKey(channel), null);
-        } catch {
-          liveStates.set(channelKey(channel), null);
-        }
-        renderTabs();
-      }),
-    );
-  }
-  await Promise.all([
-    runner(),
-    runner(),
-    runner(),
-    sharedStatusReady,
-    checkTwitch(),
-    checkAngelThump(),
-    checkFanverse(),
-    checkOtherProviders(),
-  ]);
   if (initial && !userChoseChannel) {
     const idx = channels.findIndex(
       (c) => liveStates.get(channelKey(c)) === true,
@@ -637,6 +532,7 @@ async function refreshCommunity() {
       );
       renderTabs();
       renderScreens();
+      syncNotificationMonitor();
     }
   } finally {
     communityRefreshBusy = false;
@@ -651,6 +547,7 @@ async function initFeatures(authReady) {
       notifiedOnline.delete(channelKey(editingAlert));
       saveNotifiedOnline();
       storeAlerts();
+      syncNotificationMonitor();
       $("#alert-dialog").close();
       renderTabs();
     }
@@ -666,6 +563,8 @@ async function initFeatures(authReady) {
   }
   renderTabs();
   await authReady;
+  availabilityStarted = true;
+  syncNotificationMonitor();
   await checkAvailability(true);
   setInterval(async () => {
     if (!document.hidden) {
@@ -675,4 +574,7 @@ async function initFeatures(authReady) {
       void checkAvailability(false);
     }
   }, 120000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void checkAvailability(false);
+  });
 }

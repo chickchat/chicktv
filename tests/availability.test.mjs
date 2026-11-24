@@ -7,7 +7,7 @@ const app=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const fallbackCode=app.slice(app.indexOf('const playbackCooldowns'),app.indexOf('function renderPinnedReplacements('));
 test('saved online alerts survive refresh; only an offline observation re-arms them',()=>{
   let alerts=0;
-  const context={channelKey:c=>c.key,liveStates:new Map(),notifiedOnline:new Set(['twitch:sample']),subscriptions:new Set(['twitch:sample']),saveNotifiedOnline(){},alertText:()=>'',showOnlineAlert(){alerts++},showDesktopOnlineAlert(){}};
+  const context={channelKey:c=>c.key,liveStates:new Map(),notifiedOnline:new Set(['twitch:sample']),subscriptions:new Set(['twitch:sample']),desktopAlerts:new Set(),saveNotifiedOnline(){},alertText:()=>'',showOnlineAlert(){alerts++}};
   vm.createContext(context);
   vm.runInContext(features.slice(features.indexOf('function recordAvailability('),features.indexOf('const liveStates =')),context);
   const c={key:'twitch:sample'};

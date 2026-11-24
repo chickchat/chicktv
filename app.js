@@ -67,6 +67,7 @@ function persist() {
       "chick-channels",
       JSON.stringify(channels.filter((c) => c.custom)),
     );
+    if (typeof syncNotificationMonitor === "function") syncNotificationMonitor();
   } catch {
     toast("Browser storage is unavailable. Changes last for this visit.");
   }
@@ -491,19 +492,12 @@ function pinnedPlaybackKey(c, wrap, slot) {
   return screenPinnedKeys[slot];
 }
 async function recheckPlaybackStatus(c) {
-  const source = statusProvider(c.original || c.url);
-  if (c.platform !== "m3u8" && !["soop", "chzzk"].includes(source?.provider)) return;
-  const endpoint = new URL(goshEndpoint(c.details || "status"));
-  if (c.platform !== "m3u8") {
-    endpoint.pathname = "/api/provider-status";
-    endpoint.search = new URLSearchParams(source);
-  }
-  const response = await fetch(endpoint, { cache: "no-store", signal: AbortSignal.timeout(15000) });
-  if (!response.ok) return;
-  const data = await response.json();
-  const live = c.platform === "m3u8" ? data.isLive :
-    data.status === "live" ? true : data.status === "offline" ? false : undefined;
-  if (typeof live === "boolean") recordAvailability(c, live, false);
+  if (typeof requestExtensionStatuses !== "function") return;
+  const statuses = await requestExtensionStatuses([c]);
+  const status = statuses[channelKey(c)];
+  if (status !== "live" && status !== "offline") return;
+  const live = status === "live";
+  recordAvailability(c, live, false);
   return live;
 }
 async function handlePlaybackFailure(c, wrap, slot, retry, failureIsCurrent) {
@@ -558,10 +552,7 @@ async function mountPlayer(c, wrap, slot, retry = false) {
           "This channel is currently offline.",
           c,
         );
-        if (data.isLive === false) {
-          recordAvailability(c, false, false);
-          applyPinnedFallback();
-        } else failed();
+        failed();
         return;
       }
       playVideo(data.m3u8Url, wrap, c, failed);

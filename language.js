@@ -2,6 +2,8 @@
 (() => {
   const labels = {
     'Receive desktop notifications': '接收桌面通知',
+    'Background notification extension connected.': '背景通知擴充功能已連接。',
+    'Install or update the ChickTV notification extension to check channel status and receive alerts.': '請安裝或更新 ChickTV 通知擴充功能，以查看頻道狀態及接收通知。',
     'Keep ChickTV open. Sleeping tabs or system settings may delay notifications.': '需保持 ChickTV 開啟；分頁休眠或系統設定可能延遲通知。',
     'Desktop notifications are unavailable in this browser.': '此瀏覽器不支援桌面通知。',
     "Notifications are blocked. Allow them in your browser's site settings.": '通知已被封鎖，請在瀏覽器的網站設定中允許通知。',
