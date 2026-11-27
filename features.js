@@ -89,7 +89,7 @@ window.addEventListener("message", (event) => {
       if (!subscriptions.has(popup?.key) || typeof popup.message !== "string") continue;
       if (popup.id && receivedOnlinePopupIds.has(popup.id)) continue;
       if (popup.id) receivedOnlinePopupIds.add(popup.id);
-      showOnlineAlert(popup.message, popup.id);
+      showOnlineAlert(popup.message, popup.id, popup.key);
     }
     return;
   }
@@ -101,6 +101,7 @@ window.addEventListener("message", (event) => {
     monitored.add(state.key);
     if (state.status === "live" || state.status === "offline")
       liveStates.set(state.key, state.status === "live");
+    if (state.status === "offline") discardQueuedOnlineAlerts(state.key);
     if (state.alerted) notifiedOnline.add(state.key);
     else notifiedOnline.delete(state.key);
   }
@@ -115,8 +116,13 @@ window.addEventListener("message", (event) => {
     renderTabs();
   }
 });
-function showOnlineAlert(text, id) {
-  onlineAlertQueue.push({text, id});
+function discardQueuedOnlineAlerts(key) {
+  for (let i = onlineAlertQueue.length - 1; i >= 0; i--) {
+    if (onlineAlertQueue[i].key === key) onlineAlertQueue.splice(i, 1);
+  }
+}
+function showOnlineAlert(text, id, key) {
+  onlineAlertQueue.push({text, id, key});
   if (!onlineAlertWindow) {
     onlineAlertWindow = el("dialog", "online-alert-window");
     const title = el("h2", "", "頻道上線通知");
@@ -219,12 +225,13 @@ function recordAvailability(channel, live, initial) {
   let notifyThroughExtension = false;
   liveStates.set(key, live);
   if (!live) {
+    discardQueuedOnlineAlerts(key);
     notifiedOnline.delete(key);
     saveNotifiedOnline();
   } else if (subscriptions.has(key) && !notifiedOnline.has(key)) {
     notifiedOnline.add(key);
     saveNotifiedOnline();
-    showOnlineAlert(alertText(channel));
+    showOnlineAlert(alertText(channel), undefined, key);
     notifyThroughExtension = desktopAlerts.has(key);
   }
   if (typeof publishNotificationObservation === "function")
