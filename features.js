@@ -66,6 +66,13 @@ function requestPendingOnlinePopups() {
   if (!extensionStatusChecksAvailable || document.hidden) return;
   window.postMessage({source: notificationMonitorPageSource, type: "take-popups"}, location.origin);
 }
+const receivedOnlinePopupIds = new Set();
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  displayNextOnlineAlert();
+  requestPendingOnlinePopups();
+  if (availabilityStarted) void checkAvailability(false);
+});
 window.addEventListener("message", (event) => {
   if (event.source !== window || event.origin !== location.origin ||
       event.data?.source !== notificationMonitorExtensionSource) return;
@@ -79,8 +86,10 @@ window.addEventListener("message", (event) => {
   updateDesktopAlertNote();
   if (extensionStatusChecksAvailable && event.data.type === "popups") {
     for (const popup of Array.isArray(event.data.popups) ? event.data.popups : []) {
-      if (subscriptions.has(popup?.key) && typeof popup.message === "string")
-        showOnlineAlert(popup.message);
+      if (!subscriptions.has(popup?.key) || typeof popup.message !== "string") continue;
+      if (popup.id && receivedOnlinePopupIds.has(popup.id)) continue;
+      if (popup.id) receivedOnlinePopupIds.add(popup.id);
+      showOnlineAlert(popup.message, popup.id);
     }
     return;
   }
@@ -106,8 +115,8 @@ window.addEventListener("message", (event) => {
     renderTabs();
   }
 });
-function showOnlineAlert(text) {
-  onlineAlertQueue.push(text);
+function showOnlineAlert(text, id) {
+  onlineAlertQueue.push({text, id});
   if (!onlineAlertWindow) {
     onlineAlertWindow = el("dialog", "online-alert-window");
     const title = el("h2", "", "頻道上線通知");
@@ -124,9 +133,13 @@ function showOnlineAlert(text) {
 function displayNextOnlineAlert() {
   if (document.hidden || !onlineAlertWindow || onlineAlertWindow.open || !onlineAlertQueue.length)
     return;
-  onlineAlertWindow.querySelector(".online-alert-message").textContent =
-    onlineAlertQueue.shift();
+  const {text, id} = onlineAlertQueue[0];
+  onlineAlertWindow.querySelector(".online-alert-message").textContent = text;
   onlineAlertWindow.showModal();
+  onlineAlertQueue.shift();
+  if (id) window.postMessage({
+    source: notificationMonitorPageSource, type: "popup-shown", id,
+  }, location.origin);
 }
 function saveNotifiedOnline() {
   try {
@@ -587,10 +600,4 @@ async function initFeatures(authReady) {
       void checkAvailability(false);
     }
   }, 120000);
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) return;
-    displayNextOnlineAlert();
-    requestPendingOnlinePopups();
-    void checkAvailability(false);
-  });
 }
